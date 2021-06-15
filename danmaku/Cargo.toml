@@ -1,0 +1,27 @@
+[package]
+name = "acfunlivedanmaku"
+version = "0.1.0"
+authors = ["orzogc <orzogc@163.com>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+acfunliveapi = { version = "0.1.0", path = "../api" }
+aes = "0.7.4"
+async-channel = "1.6.1"
+async-compression = { version = "0.3.8", features = ["futures-io", "gzip"] }
+async-trait = "0.1.50"
+base64 = "0.13.0"
+block-modes = "0.8.1"
+chrono = { version = "0.4.19", default-features = false, features = ["std", "clock"] }
+futures = "0.3.15"
+futures-timer = "3.0.2"
+prost = "0.7.0"
+rand = "0.8.3"
+thiserror = "1.0.25"
+tokio = { version = "1.6.2", features = ["net"] }
+tokio-tungstenite = { version = "0.14.0", features = ["rustls-tls"] }
+
+[build-dependencies]
+prost-build = "0.7.0"
+tokio = { version = "1.6.2", features = ["rt-multi-thread", "macros"] }
