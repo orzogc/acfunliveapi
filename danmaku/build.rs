@@ -11,7 +11,10 @@ fn main() -> std::io::Result<()> {
     let proto_zt = fs::read_dir(&zt_path)?;
     protos.append(&mut proto_zt.map(|r| r.unwrap().path()).collect());
     let mut config = prost_build::Config::new();
-    //config.type_attribute(".", "#[derive(Eq)]");
+    config.type_attribute(
+        ".",
+        "#[cfg_attr(feature = \"_serde\", derive(serde::Deserialize, serde::Serialize))]",
+    );
     config.compile_protos(protos.as_slice(), &[im_path, zt_path])?;
 
     Ok(())

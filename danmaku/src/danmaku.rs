@@ -1,6 +1,7 @@
 use crate::{acproto, global::*, Error, Result};
 use prost::Message;
 
+#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ActionSignal {
     Comment(acproto::CommonActionSignalComment),
@@ -13,6 +14,7 @@ pub enum ActionSignal {
     JoinClub(acproto::AcfunActionSignalJoinClub),
 }
 
+#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum StateSignal {
     AcFunDisplayInfo(acproto::AcfunStateSignalDisplayInfo),
@@ -31,6 +33,7 @@ pub enum StateSignal {
     AuthorChatChangeSoundConfig(acproto::CommonStateSignalAuthorChatChangeSoundConfig),
 }
 
+#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum NotifySignal {
     KickedOut(acproto::CommonNotifySignalKickedOut),

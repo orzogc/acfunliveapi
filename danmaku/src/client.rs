@@ -30,6 +30,7 @@ enum Command {
     Close,
 }
 
+#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Token {
     pub user_id: i64,
@@ -255,7 +256,24 @@ impl<C: WebSocket> Client<C> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[cfg(all(feature = "api", feature = "default_ws_client"))]
+impl<C> From<ApiClient<C>> for Client<WsClient> {
+    #[inline]
+    fn from(client: ApiClient<C>) -> Self {
+        ClientBuilder::default_client(client.into()).build()
+    }
+}
+
+#[cfg(all(feature = "api", feature = "default_ws_client"))]
+impl<C> From<&ApiClient<C>> for Client<WsClient> {
+    #[inline]
+    fn from(client: &ApiClient<C>) -> Self {
+        ClientBuilder::default_client(client.into()).build()
+    }
+}
+
+#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct ClientBuilder<C> {
     token: Token,
     ws_client: C,
@@ -377,7 +395,7 @@ async fn handle(
     Ok(())
 }
 
-#[cfg(all(feature = "default_ws_client", feature = "api"))]
+#[cfg(all(feature = "api", feature = "default_ws_client"))]
 #[cfg(test)]
 mod tests {
     use super::*;
