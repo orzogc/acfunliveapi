@@ -2,9 +2,13 @@ use crate::{acfun::*, kuaishou::*, response::*, Error, Rest, Result};
 use cookie::Cookie;
 use core::str;
 use pretend::{http::header::SET_COOKIE, resolver::UrlResolver, Pretend, Response, Url};
-use pretend_reqwest::Client as PRClient;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, time::Duration};
+use std::borrow::Cow;
+
+#[cfg(feature = "default_http_client")]
+use pretend_reqwest::Client as PRClient;
+#[cfg(feature = "default_http_client")]
+use std::time::Duration;
 
 const ACFUN_ID: &str = "https://id.app.acfun.cn/";
 const ACFUN_LIVE: &str = "https://live.acfun.cn/";
@@ -14,6 +18,7 @@ const KUAISHOU_ZT: &str = "https://api.kuaishouzt.com/";
 
 pub type Cookies = String;
 
+#[cfg(feature = "default_http_client")]
 #[inline]
 fn default_reqwest_client() -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
@@ -56,6 +61,7 @@ impl<C> Clients<C> {
     }
 }
 
+#[cfg(feature = "default_http_client")]
 impl Clients<PRClient> {
     fn default_clients() -> Result<Self> {
         let client = default_reqwest_client()?;
@@ -130,6 +136,7 @@ pub struct Client<C> {
     user_id_string: String,
 }
 
+#[cfg(feature = "default_http_client")]
 impl Client<PRClient> {
     #[inline]
     fn default_client() -> Result<Self> {
@@ -390,6 +397,7 @@ pub struct ClientBuilder<C> {
     liver_uid: i64,
 }
 
+#[cfg(feature = "default_http_client")]
 impl ClientBuilder<PRClient> {
     #[inline]
     pub fn default_client() -> Result<Self> {
@@ -496,6 +504,7 @@ where
     }
 }
 
+#[cfg(feature = "default_http_client")]
 #[cfg(test)]
 mod tests {
     use super::*;

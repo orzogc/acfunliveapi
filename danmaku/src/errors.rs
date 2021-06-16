@@ -38,12 +38,14 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("index {1} in {0} was out of range")]
     IndexOutOfRange(&'static str, usize),
-    #[error(transparent)]
-    AcFunLiveApiError(#[from] acfunliveapi::Error),
     #[error("failed to send danmaku")]
     SendDanmakuError,
     #[error("failed to send a message through the oneshot channel")]
     SendOneshotError,
     #[error(transparent)]
     SenderCancelError(#[from] futures::channel::oneshot::Canceled),
+
+    #[cfg(feature = "api")]
+    #[error(transparent)]
+    AcFunLiveApiError(#[from] acfunliveapi::Error),
 }

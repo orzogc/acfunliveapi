@@ -1,8 +1,4 @@
 use crate::{danmaku::*, global::*, proto::*, websocket::*, Error, Result};
-use acfunliveapi::{
-    client::{Client as ApiClient, ClientBuilder as ApiClientBuilder, Live, Token as ApiToken},
-    pretend,
-};
 use async_compression::futures::bufread::GzipDecoder;
 use futures::{
     channel::{mpsc, oneshot},
@@ -13,6 +9,12 @@ use futures::{
 use futures_timer::Delay;
 use prost::Message;
 use std::time::Duration;
+
+#[cfg(feature = "api")]
+use acfunliveapi::{
+    client::{Client as ApiClient, ClientBuilder as ApiClientBuilder, Live, Token as ApiToken},
+    pretend,
+};
 
 const CHANNEL_SIZE: usize = 100;
 
@@ -38,6 +40,7 @@ pub struct Token {
     pub tickets: Vec<String>,
 }
 
+#[cfg(feature = "api")]
 impl Token {
     pub async fn new(liver_uid: i64) -> Result<Self> {
         let client = ApiClientBuilder::default_client()?
@@ -78,6 +81,7 @@ impl Token {
     }
 }
 
+#[cfg(feature = "api")]
 impl<C> From<ApiClient<C>> for Token {
     #[inline]
     fn from(client: ApiClient<C>) -> Self {
@@ -85,6 +89,7 @@ impl<C> From<ApiClient<C>> for Token {
     }
 }
 
+#[cfg(feature = "api")]
 impl<C> From<&ApiClient<C>> for Token {
     #[inline]
     fn from(client: &ApiClient<C>) -> Self {
@@ -256,6 +261,7 @@ pub struct ClientBuilder<C> {
     ws_client: C,
 }
 
+#[cfg(feature = "default_ws_client")]
 impl ClientBuilder<WsClient> {
     #[inline]
     pub fn default_client(token: Token) -> Self {
@@ -284,6 +290,13 @@ impl<C> ClientBuilder<C> {
             state_tx: None,
             notify_tx: None,
         }
+    }
+}
+
+impl<C> From<ClientBuilder<C>> for Client<C> {
+    #[inline]
+    fn from(builder: ClientBuilder<C>) -> Self {
+        builder.build()
     }
 }
 
@@ -364,6 +377,7 @@ async fn handle(
     Ok(())
 }
 
+#[cfg(all(feature = "default_ws_client", feature = "api"))]
 #[cfg(test)]
 mod tests {
     use super::*;

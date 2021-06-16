@@ -10,12 +10,16 @@ readme = "README.md"
 categories = ["api-bindings", "web-programming"]
 keywords = ["acfun", "live"]
 
+[features]
+default = ["default_http_client"]
+default_http_client = ["pretend-reqwest", "reqwest"]
+
 [dependencies]
 async-trait = "0.1.50"
 cookie = "0.15.0"
 pretend = "0.2.0"
-pretend-reqwest = "0.2.0"
-reqwest = { version = "0.11.3", default-features = false, features = ["rustls-tls", "gzip"] }
+pretend-reqwest = { version = "0.2.0", optional = true }
+reqwest = { version = "0.11.3", default-features = false, features = ["rustls-tls", "gzip"], optional = true }
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"
 thiserror = "1.0.25"

@@ -15,8 +15,6 @@ pub enum Error {
     #[error("live ID was empty")]
     EmptyLiveId,
     #[error(transparent)]
-    BuildClientFailed(#[from] reqwest::Error),
-    #[error(transparent)]
     ParseUrlError(#[from] pretend::resolver::ParseError),
     #[error(transparent)]
     PretendError(#[from] pretend::Error),
@@ -26,4 +24,8 @@ pub enum Error {
     HeaderToStrError(#[from] pretend::http::header::ToStrError),
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[cfg(feature = "default_http_client")]
+    #[error(transparent)]
+    BuildClientFailed(#[from] reqwest::Error),
 }

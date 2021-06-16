@@ -8,6 +8,8 @@ mod errors;
 mod global;
 mod proto;
 
-pub use acfunliveapi;
 pub use errors::*;
 pub use proto::acproto;
+
+#[cfg(feature = "api")]
+pub use acfunliveapi;
