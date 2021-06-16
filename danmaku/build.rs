@@ -1,5 +1,4 @@
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
 fn main() -> std::io::Result<()> {
     let protos_path = Path::new("protos");

@@ -23,11 +23,7 @@ async fn main() -> Result<()> {
         .into_iter()
         .map(|g| (g.gift_id, g))
         .collect();
-    let mut client = ClientBuilder::new(Token::from_token_live(
-        api_client.token(),
-        api_client.live(),
-    ))
-    .build();
+    let mut client = ClientBuilder::default_client(api_client.into()).build();
     let action_rx = client.action_signal();
     let action = async {
         while let Ok(action) = action_rx.recv().await {

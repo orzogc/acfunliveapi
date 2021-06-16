@@ -78,8 +78,22 @@ impl Token {
     }
 }
 
+impl<C> From<ApiClient<C>> for Token {
+    #[inline]
+    fn from(client: ApiClient<C>) -> Self {
+        Self::from_token_live(client.token(), client.live())
+    }
+}
+
+impl<C> From<&ApiClient<C>> for Token {
+    #[inline]
+    fn from(client: &ApiClient<C>) -> Self {
+        Self::from_token_live(client.token(), client.live())
+    }
+}
+
 #[derive(Clone, Debug, Default)]
-pub struct Client<C: WebSocket> {
+pub struct Client<C> {
     token: Token,
     ws_client: C,
     action_tx: Option<async_channel::Sender<ActionSignal>>,
@@ -87,7 +101,7 @@ pub struct Client<C: WebSocket> {
     notify_tx: Option<async_channel::Sender<NotifySignal>>,
 }
 
-impl<C: WebSocket> Client<C> {
+impl<C> Client<C> {
     #[inline]
     pub fn set_token(&mut self, token: Token) -> &mut Self {
         self.token = token;
@@ -124,7 +138,9 @@ impl<C: WebSocket> Client<C> {
         self.notify_tx = Some(tx);
         rx
     }
+}
 
+impl<C: WebSocket> Client<C> {
     pub async fn danmaku(self) -> Result<()> {
         let mut data: ProtoData = self.token.into();
         let (mut ws_write, mut ws_read) = self.ws_client.connect(DANMAKU_SERVER).await?;
@@ -235,45 +251,39 @@ impl<C: WebSocket> Client<C> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ClientBuilder<C: WebSocket> {
-    client: Client<C>,
+pub struct ClientBuilder<C> {
+    token: Token,
+    ws_client: C,
 }
 
 impl ClientBuilder<WsClient> {
     #[inline]
-    pub fn new(token: Token) -> Self {
+    pub fn default_client(token: Token) -> Self {
         Self {
-            client: Client {
-                token,
-                ws_client: WsClient,
-                action_tx: None,
-                state_tx: None,
-                notify_tx: None,
-            },
+            token,
+            ws_client: WsClient,
         }
     }
 }
 
-impl<C: WebSocket> ClientBuilder<C> {
+impl<C> ClientBuilder<C> {
     #[inline]
-    pub fn websocket_client<T>(self, client: T) -> ClientBuilder<T>
-    where
-        T: WebSocket,
-    {
-        ClientBuilder {
-            client: Client {
-                token: self.client.token,
-                ws_client: client,
-                action_tx: None,
-                state_tx: None,
-                notify_tx: None,
-            },
+    pub fn new(token: Token, client: C) -> Self {
+        Self {
+            token,
+            ws_client: client,
         }
     }
 
     #[inline]
     pub fn build(self) -> Client<C> {
-        self.client
+        Client {
+            token: self.token,
+            ws_client: self.ws_client,
+            action_tx: None,
+            state_tx: None,
+            notify_tx: None,
+        }
     }
 }
 
@@ -366,7 +376,7 @@ mod tests {
             .expect("need to set the LIVER_UID environment variable to the liver's uid")
             .parse()
             .expect("LIVER_UID should be an integer");
-        let mut client = ClientBuilder::new(Token::new(liver_uid).await?).build();
+        let mut client = ClientBuilder::default_client(Token::new(liver_uid).await?).build();
         let action_rx = client.action_signal();
         let action = async {
             while let Ok(action) = action_rx.recv().await {

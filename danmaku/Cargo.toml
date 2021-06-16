@@ -19,9 +19,9 @@ futures-timer = "3.0.2"
 prost = "0.7.0"
 rand = "0.8.3"
 thiserror = "1.0.25"
-tokio = { version = "1.6.2", features = ["net"] }
+tokio = { version = "1.7.0", features = ["net"] }
 tokio-tungstenite = { version = "0.14.0", features = ["rustls-tls"] }
 
 [build-dependencies]
 prost-build = "0.7.0"
-tokio = { version = "1.6.2", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.7.0", features = ["rt-multi-thread", "macros"] }
