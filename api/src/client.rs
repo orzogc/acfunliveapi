@@ -12,7 +12,7 @@ use std::time::Duration;
 
 const ACFUN_ID: &str = "https://id.app.acfun.cn/";
 const ACFUN_LIVE: &str = "https://live.acfun.cn/";
-//const ACFUN_API: &str = "https://api-new.app.acfun.cn/";
+const ACFUN_API: &str = "https://api-new.app.acfun.cn/";
 //const ACFUN_MEMBER: &str = "https://member.acfun.cn/";
 const KUAISHOU_ZT: &str = "https://api.kuaishouzt.com/";
 
@@ -41,7 +41,7 @@ pub enum AcFunToken {
 struct Clients<C> {
     acfun_id: Pretend<C, UrlResolver>,
     acfun_live: Pretend<C, UrlResolver>,
-    //acfun_api: Pretend<C, UrlResolver>,
+    acfun_api: Pretend<C, UrlResolver>,
     //acfun_member: Pretend<C, UrlResolver>,
     kuaishou_zt: Pretend<C, UrlResolver>,
 }
@@ -54,7 +54,7 @@ impl<C> Clients<C> {
         Ok(Self {
             acfun_id: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_ID)?),
             acfun_live: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_LIVE)?),
-            //acfun_api: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_API)?),
+            acfun_api: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_API)?),
             //acfun_member: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_MEMBER)?),
             kuaishou_zt: Pretend::for_client(client).with_url(Url::parse(KUAISHOU_ZT)?),
         })
@@ -71,7 +71,8 @@ impl Clients<PRClient> {
                 .with_url(Url::parse(ACFUN_ID)?),
             acfun_live: Pretend::for_client(PRClient::new(client.clone()))
                 .with_url(Url::parse(ACFUN_LIVE)?),
-            //acfun_api: Pretend::for_client(PRClient::new(client.clone())).with_url(Url::parse(ACFUN_API)?),
+            acfun_api: Pretend::for_client(PRClient::new(client.clone()))
+                .with_url(Url::parse(ACFUN_API)?),
             //acfun_member: Pretend::for_client(PRClient::new(client.clone())).with_url(Url::parse(ACFUN_MEMBER)?),
             kuaishou_zt: Pretend::for_client(PRClient::new(client))
                 .with_url(Url::parse(KUAISHOU_ZT)?),
@@ -373,7 +374,7 @@ where
         T::request(self).await
     }
 
-    pub async fn get_gift_list(&self, live_id: impl Into<Cow<'_, str>>) -> Result<Gift> {
+    pub async fn get_gift_list(&self, live_id: impl Into<Cow<'_, str>>) -> Result<GiftList> {
         let live_id = live_id.into();
         if live_id.is_empty() {
             Err(Error::EmptyLiveId)
@@ -387,6 +388,21 @@ where
                 .await?
                 .value())
         }
+    }
+
+    pub async fn get_live_list(&self, count: u32, page: u32) -> Result<LiveList> {
+        Ok(self
+            .clients
+            .acfun_api
+            .live_list(
+                &LiveListForm {
+                    count,
+                    pcursor: page,
+                },
+                self.token.cookies.as_deref().unwrap_or_default(),
+            )
+            .await?
+            .value())
     }
 }
 
@@ -520,10 +536,8 @@ mod tests {
             .liver_uid(liver_uid)
             .build()
             .await?;
-        println!("{:?}", client.token());
-        //println!("{:?}", client.get_live());
-        let _gift: Gift = client.get().await?;
-        //println!("{:?}", _gift);
+        let _gifts: GiftList = client.get().await?;
+        let _live_list: LiveList = client.get().await?;
 
         Ok(())
     }
@@ -544,10 +558,8 @@ mod tests {
             .liver_uid(liver_uid)
             .build()
             .await?;
-        println!("{:?}", client.token());
-        //println!("{:?}", client.get_live());
-        let _gift: Gift = client.get().await?;
-        //println!("{:?}", _gift);
+        let _gifts: GiftList = client.get().await?;
+        let _live_list: LiveList = client.get().await?;
 
         Ok(())
     }

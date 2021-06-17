@@ -34,6 +34,12 @@ pub(crate) struct TokenForm {
     pub(crate) sid: Sid,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct LiveListForm {
+    pub(crate) count: u32,
+    pub(crate) pcursor: u32,
+}
+
 #[pretend]
 pub(crate) trait AcFunId {
     #[request(method = "POST", path = "/rest/web/login/signin")]
@@ -52,4 +58,11 @@ pub(crate) trait AcFunId {
 pub(crate) trait AcFunLive {
     #[request(method = "GET", path = "/")]
     async fn device_id(&self) -> Result<Response<()>>;
+}
+
+#[pretend]
+pub(crate) trait AcFunApi {
+    #[request(method = "POST", path = "/rest/app/live/channel")]
+    #[header(name = "Cookie", value = "{cookie}")]
+    async fn live_list(&self, form: &LiveListForm, cookie: &str) -> Result<Json<LiveList>>;
 }
