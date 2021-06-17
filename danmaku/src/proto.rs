@@ -1,4 +1,4 @@
-use crate::{client::Token, global::*, Error, Result};
+use crate::{client::DanmakuToken, global::*, Error, Result};
 use aes::Aes128;
 use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
 use prost::Message;
@@ -190,9 +190,9 @@ impl ProtoData {
     }
 }
 
-impl From<Token> for ProtoData {
+impl From<DanmakuToken> for ProtoData {
     #[inline]
-    fn from(token: Token) -> Self {
+    fn from(token: DanmakuToken) -> Self {
         Self {
             user_id: token.user_id,
             security_key: token.security_key,

@@ -80,7 +80,7 @@ impl Clients<PRClient> {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct Token {
+pub struct ApiToken {
     pub user_id: i64,
     pub security_key: String,
     pub service_token: String,
@@ -88,7 +88,7 @@ pub struct Token {
     pub cookies: Option<Cookies>,
 }
 
-impl Token {
+impl ApiToken {
     #[inline]
     pub fn is_login(&self) -> bool {
         !(self.user_id == 0
@@ -129,27 +129,27 @@ pub struct Live {
     pub stream_list: Vec<Stream>,
 }
 
-pub struct Client<C> {
+pub struct ApiClient<C> {
     clients: Clients<C>,
-    token: Token,
+    token: ApiToken,
     live: Live,
     user_id_string: String,
 }
 
 #[cfg(feature = "default_http_client")]
-impl Client<PRClient> {
+impl ApiClient<PRClient> {
     #[inline]
     fn default_client() -> Result<Self> {
         Ok(Self {
             clients: Clients::default_clients()?,
-            token: Token::default(),
+            token: ApiToken::default(),
             live: Live::default(),
             user_id_string: String::new(),
         })
     }
 }
 
-impl<C> Client<C> {
+impl<C> ApiClient<C> {
     #[inline]
     fn new(client: C) -> Result<Self>
     where
@@ -157,26 +157,26 @@ impl<C> Client<C> {
     {
         Ok(Self {
             clients: Clients::new(client)?,
-            token: Token::default(),
+            token: ApiToken::default(),
             live: Live::default(),
             user_id_string: String::new(),
         })
     }
 
     #[inline]
-    pub fn set_token(&mut self, token: Token) -> &mut Self {
+    pub fn set_token(&mut self, token: ApiToken) -> &mut Self {
         self.user_id_string = token.user_id.to_string();
         self.token = token;
         self
     }
 
     #[inline]
-    pub fn token(&self) -> &Token {
+    pub fn token(&self) -> &ApiToken {
         &self.token
     }
 
     #[inline]
-    pub fn token_mut(&mut self) -> &mut Token {
+    pub fn token_mut(&mut self) -> &mut ApiToken {
         &mut self.token
     }
 
@@ -249,7 +249,7 @@ impl<C> Client<C> {
     }
 }
 
-impl<C> Client<C>
+impl<C> ApiClient<C>
 where
     C: pretend::client::Client + Send + Sync,
 {
@@ -390,19 +390,19 @@ where
     }
 }
 
-pub struct ClientBuilder<C> {
-    client: Client<C>,
+pub struct ApiClientBuilder<C> {
+    client: ApiClient<C>,
     account: String,
     password: String,
     liver_uid: i64,
 }
 
 #[cfg(feature = "default_http_client")]
-impl ClientBuilder<PRClient> {
+impl ApiClientBuilder<PRClient> {
     #[inline]
     pub fn default_client() -> Result<Self> {
         Ok(Self {
-            client: Client::default_client()?,
+            client: ApiClient::default_client()?,
             account: String::new(),
             password: String::new(),
             liver_uid: 0,
@@ -410,14 +410,14 @@ impl ClientBuilder<PRClient> {
     }
 }
 
-impl<C> ClientBuilder<C> {
+impl<C> ApiClientBuilder<C> {
     #[inline]
     pub fn new(client: C) -> Result<Self>
     where
         C: Clone,
     {
         Ok(Self {
-            client: Client::new(client)?,
+            client: ApiClient::new(client)?,
             account: String::new(),
             password: String::new(),
             liver_uid: 0,
@@ -444,11 +444,11 @@ impl<C> ClientBuilder<C> {
     }
 }
 
-impl<C> ClientBuilder<C>
+impl<C> ApiClientBuilder<C>
 where
     C: pretend::client::Client + Send + Sync,
 {
-    pub async fn build(self) -> Result<Client<C>> {
+    pub async fn build(self) -> Result<ApiClient<C>> {
         let mut client = self.client;
         if !(self.account.is_empty() || self.password.is_empty()) {
             let (login, cookies) = client.login(self.account, self.password).await?;
@@ -516,7 +516,7 @@ mod tests {
             .expect("need to set the LIVER_UID environment variable to the liver's uid")
             .parse()
             .expect("LIVER_UID should be an integer");
-        let client = ClientBuilder::default_client()?
+        let client = ApiClientBuilder::default_client()?
             .liver_uid(liver_uid)
             .build()
             .await?;
@@ -539,7 +539,7 @@ mod tests {
             .expect("need to set the LIVER_UID environment variable to the liver's uid")
             .parse()
             .expect("LIVER_UID should be an integer");
-        let client = ClientBuilder::default_client()?
+        let client = ApiClientBuilder::default_client()?
             .login(account, password)
             .liver_uid(liver_uid)
             .build()

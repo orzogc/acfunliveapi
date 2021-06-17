@@ -12,9 +12,11 @@ use std::time::Duration;
 
 #[cfg(feature = "api")]
 use acfunliveapi::{
-    client::{Client as ApiClient, ClientBuilder as ApiClientBuilder, Live, Token as ApiToken},
+    client::{ApiClient, ApiClientBuilder, ApiToken, Live},
     pretend,
 };
+#[cfg(feature = "api")]
+use std::borrow::Cow;
 
 const CHANNEL_SIZE: usize = 100;
 
@@ -32,8 +34,9 @@ enum Command {
 
 #[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
-pub struct Token {
+pub struct DanmakuToken {
     pub user_id: i64,
+    pub liver_uid: i64,
     pub security_key: String,
     pub service_token: String,
     pub live_id: String,
@@ -41,10 +44,36 @@ pub struct Token {
     pub tickets: Vec<String>,
 }
 
+impl DanmakuToken {
+    #[inline]
+    pub fn is_valid(&self) -> bool {
+        !(self.user_id == 0
+            || self.security_key.is_empty()
+            || self.service_token.is_empty()
+            || self.live_id.is_empty()
+            || self.enter_room_attach.is_empty()
+            || self.tickets.is_empty())
+    }
+}
+
 #[cfg(feature = "api")]
-impl Token {
+impl DanmakuToken {
     pub async fn new(liver_uid: i64) -> Result<Self> {
         let client = ApiClientBuilder::default_client()?
+            .liver_uid(liver_uid)
+            .build()
+            .await?;
+
+        Ok(Self::from_token_live(client.token(), client.live()))
+    }
+
+    pub async fn login<'a>(
+        account: impl Into<Cow<'a, str>>,
+        password: impl Into<Cow<'a, str>>,
+        liver_uid: i64,
+    ) -> Result<Self> {
+        let client = ApiClientBuilder::default_client()?
+            .login(account, password)
             .liver_uid(liver_uid)
             .build()
             .await?;
@@ -61,6 +90,7 @@ impl Token {
 
         Ok(Self {
             user_id: token.user_id,
+            liver_uid,
             security_key: token.security_key.clone(),
             service_token: token.service_token.clone(),
             live_id: info.data.live_id,
@@ -73,6 +103,7 @@ impl Token {
     pub fn from_token_live(token: &ApiToken, live: &Live) -> Self {
         Self {
             user_id: token.user_id,
+            liver_uid: live.liver_uid,
             security_key: token.security_key.clone(),
             service_token: token.service_token.clone(),
             live_id: live.live_id.clone(),
@@ -83,7 +114,7 @@ impl Token {
 }
 
 #[cfg(feature = "api")]
-impl<C> From<ApiClient<C>> for Token {
+impl<C> From<ApiClient<C>> for DanmakuToken {
     #[inline]
     fn from(client: ApiClient<C>) -> Self {
         Self::from_token_live(client.token(), client.live())
@@ -91,7 +122,7 @@ impl<C> From<ApiClient<C>> for Token {
 }
 
 #[cfg(feature = "api")]
-impl<C> From<&ApiClient<C>> for Token {
+impl<C> From<&ApiClient<C>> for DanmakuToken {
     #[inline]
     fn from(client: &ApiClient<C>) -> Self {
         Self::from_token_live(client.token(), client.live())
@@ -99,29 +130,98 @@ impl<C> From<&ApiClient<C>> for Token {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Client<C> {
-    token: Token,
+pub struct DanmakuClient<C> {
+    token: DanmakuToken,
     ws_client: C,
     action_tx: Option<async_channel::Sender<ActionSignal>>,
     state_tx: Option<async_channel::Sender<StateSignal>>,
     notify_tx: Option<async_channel::Sender<NotifySignal>>,
 }
 
-impl<C> Client<C> {
+#[cfg(feature = "default_ws_client")]
+impl DanmakuClient<WsClient> {
     #[inline]
-    pub fn set_token(&mut self, token: Token) -> &mut Self {
+    pub fn default_client(token: DanmakuToken) -> Self {
+        Self {
+            token,
+            ws_client: WsClient,
+            action_tx: None,
+            state_tx: None,
+            notify_tx: None,
+        }
+    }
+
+    #[cfg(feature = "api")]
+    #[inline]
+    pub async fn anonymous(liver_uid: i64) -> Result<Self> {
+        Ok(Self::default_client(DanmakuToken::new(liver_uid).await?))
+    }
+
+    #[cfg(feature = "api")]
+    #[inline]
+    pub async fn login<'a>(
+        account: impl Into<Cow<'a, str>>,
+        password: impl Into<Cow<'a, str>>,
+        liver_uid: i64,
+    ) -> Result<Self> {
+        Ok(Self::default_client(
+            DanmakuToken::login(account, password, liver_uid).await?,
+        ))
+    }
+
+    #[cfg(feature = "api")]
+    #[inline]
+    pub async fn from_api_client<C>(client: &ApiClient<C>, liver_uid: i64) -> Result<Self>
+    where
+        C: pretend::client::Client + Send + Sync,
+    {
+        Ok(Self::default_client(
+            DanmakuToken::from_api_client(client, liver_uid).await?,
+        ))
+    }
+}
+
+impl<C> DanmakuClient<C> {
+    #[inline]
+    pub fn new(token: DanmakuToken, client: C) -> Self {
+        Self {
+            token,
+            ws_client: client,
+            action_tx: None,
+            state_tx: None,
+            notify_tx: None,
+        }
+    }
+
+    #[inline]
+    pub fn set_token(&mut self, token: DanmakuToken) -> &mut Self {
         self.token = token;
         self
     }
 
     #[inline]
-    pub fn token(&self) -> &Token {
+    pub fn token(&self) -> &DanmakuToken {
         &self.token
     }
 
     #[inline]
-    pub fn token_mut(&mut self) -> &mut Token {
+    pub fn token_mut(&mut self) -> &mut DanmakuToken {
         &mut self.token
+    }
+
+    #[inline]
+    pub fn user_id(&self) -> i64 {
+        self.token.user_id
+    }
+
+    #[inline]
+    pub fn liver_uid(&self) -> i64 {
+        self.token.liver_uid
+    }
+
+    #[inline]
+    pub fn live_id(&self) -> &str {
+        self.token.live_id.as_str()
     }
 
     #[inline]
@@ -146,8 +246,11 @@ impl<C> Client<C> {
     }
 }
 
-impl<C: WebSocket> Client<C> {
+impl<C: WebSocket> DanmakuClient<C> {
     pub async fn danmaku(self) -> Result<()> {
+        if !self.token.is_valid() {
+            return Err(Error::InvalidToken);
+        }
         let mut data: ProtoData = self.token.into();
         let (mut ws_write, mut ws_read) = self.ws_client.connect(DANMAKU_SERVER).await?;
         let action_tx = self.action_tx;
@@ -256,65 +359,27 @@ impl<C: WebSocket> Client<C> {
     }
 }
 
+#[cfg(feature = "default_ws_client")]
+impl From<DanmakuToken> for DanmakuClient<WsClient> {
+    #[inline]
+    fn from(token: DanmakuToken) -> Self {
+        Self::default_client(token)
+    }
+}
+
 #[cfg(all(feature = "api", feature = "default_ws_client"))]
-impl<C> From<ApiClient<C>> for Client<WsClient> {
+impl<C> From<ApiClient<C>> for DanmakuClient<WsClient> {
     #[inline]
     fn from(client: ApiClient<C>) -> Self {
-        ClientBuilder::default_client(client.into()).build()
+        Self::default_client(client.into())
     }
 }
 
 #[cfg(all(feature = "api", feature = "default_ws_client"))]
-impl<C> From<&ApiClient<C>> for Client<WsClient> {
+impl<C> From<&ApiClient<C>> for DanmakuClient<WsClient> {
     #[inline]
     fn from(client: &ApiClient<C>) -> Self {
-        ClientBuilder::default_client(client.into()).build()
-    }
-}
-
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
-pub struct ClientBuilder<C> {
-    token: Token,
-    ws_client: C,
-}
-
-#[cfg(feature = "default_ws_client")]
-impl ClientBuilder<WsClient> {
-    #[inline]
-    pub fn default_client(token: Token) -> Self {
-        Self {
-            token,
-            ws_client: WsClient,
-        }
-    }
-}
-
-impl<C> ClientBuilder<C> {
-    #[inline]
-    pub fn new(token: Token, client: C) -> Self {
-        Self {
-            token,
-            ws_client: client,
-        }
-    }
-
-    #[inline]
-    pub fn build(self) -> Client<C> {
-        Client {
-            token: self.token,
-            ws_client: self.ws_client,
-            action_tx: None,
-            state_tx: None,
-            notify_tx: None,
-        }
-    }
-}
-
-impl<C> From<ClientBuilder<C>> for Client<C> {
-    #[inline]
-    fn from(builder: ClientBuilder<C>) -> Self {
-        builder.build()
+        Self::default_client(client.into())
     }
 }
 
@@ -408,7 +473,7 @@ mod tests {
             .expect("need to set the LIVER_UID environment variable to the liver's uid")
             .parse()
             .expect("LIVER_UID should be an integer");
-        let mut client = ClientBuilder::default_client(Token::new(liver_uid).await?).build();
+        let mut client = DanmakuClient::anonymous(liver_uid).await?;
         let action_rx = client.action_signal();
         let action = async {
             while let Ok(action) = action_rx.recv().await {
