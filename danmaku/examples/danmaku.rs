@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
         .liver_uid(liver_uid)
         .build()
         .await?;
-    let gifts: Gift = api_client.get().await?;
+    let gifts: GiftList = api_client.get().await?;
     let gifts: HashMap<_, _> = gifts
         .data
         .gift_list
@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_action(action: ActionSignal, gifts: &HashMap<i64, GiftList>) {
+fn handle_action(action: ActionSignal, gifts: &HashMap<i64, Gift>) {
     match action {
         ActionSignal::Comment(d) => {
             let user_info = d.user_info.unwrap_or_default();
