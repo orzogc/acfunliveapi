@@ -198,6 +198,26 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
+    pub fn acfun_id(&self) -> &Pretend<C, UrlResolver> {
+        &self.clients.acfun_id
+    }
+
+    #[inline]
+    pub fn acfun_live(&self) -> &Pretend<C, UrlResolver> {
+        &self.clients.acfun_live
+    }
+
+    #[inline]
+    pub fn acfun_api(&self) -> &Pretend<C, UrlResolver> {
+        &self.clients.acfun_api
+    }
+
+    #[inline]
+    pub fn kuaishou_zt(&self) -> &Pretend<C, UrlResolver> {
+        &self.clients.kuaishou_zt
+    }
+
+    #[inline]
     pub fn is_login(&self) -> bool {
         self.token.is_login()
     }
@@ -254,14 +274,13 @@ impl<C> ApiClient<C>
 where
     C: pretend::client::Client + Send + Sync,
 {
-    pub async fn login(
+    pub async fn user(
         &self,
         account: impl Into<Cow<'_, str>>,
         password: impl Into<Cow<'_, str>>,
     ) -> Result<(Login, Cookies)> {
         let resp: Response<_> = self
-            .clients
-            .acfun_id
+            .acfun_id()
             .login(&LoginForm::new(&account.into(), &password.into()))
             .await?;
 
@@ -283,7 +302,7 @@ where
     }
 
     pub async fn get_device_id(&self) -> Result<String> {
-        let resp: Response<_> = self.clients.acfun_live.device_id().await?;
+        let resp: Response<_> = self.acfun_live().device_id().await?;
         let did = resp
             .headers()
             .get_all(SET_COOKIE)
@@ -319,8 +338,7 @@ where
         match &self.token.cookies {
             Some(c) => {
                 let token: UserToken = self
-                    .clients
-                    .acfun_id
+                    .acfun_id()
                     .user_token(
                         &TokenForm {
                             sid: Sid::Midground,
@@ -334,8 +352,7 @@ where
             }
             None => {
                 let token: VisitorToken = self
-                    .clients
-                    .acfun_id
+                    .acfun_id()
                     .visitor_token(&TokenForm { sid: Sid::Visitor }, device_id)
                     .await?
                     .value();
@@ -350,12 +367,11 @@ where
             return Err(Error::InvalidUid(liver_uid));
         }
         if !self.is_login() {
-            return Err(Error::NoLogin);
+            return Err(Error::NoVisitorOrUserLogin);
         }
 
         let mut info: LiveInfo = self
-            .clients
-            .kuaishou_zt
+            .kuaishou_zt()
             .start_play(&self.ks_query(), &StartPlayForm::new(liver_uid))
             .await?
             .value();
@@ -379,11 +395,10 @@ where
         if live_id.is_empty() {
             Err(Error::EmptyLiveId)
         } else if !self.is_login() {
-            Err(Error::NoLogin)
+            Err(Error::NoVisitorOrUserLogin)
         } else {
             Ok(self
-                .clients
-                .kuaishou_zt
+                .kuaishou_zt()
                 .gift_list(&self.ks_query(), &self.ks_form(live_id.as_ref()))
                 .await?
                 .value())
@@ -392,8 +407,7 @@ where
 
     pub async fn get_live_list(&self, count: u32, page: u32) -> Result<LiveList> {
         Ok(self
-            .clients
-            .acfun_api
+            .acfun_api()
             .live_list(
                 &LiveListForm {
                     count,
@@ -403,6 +417,18 @@ where
             )
             .await?
             .value())
+    }
+
+    pub async fn get_medal_list(&self, liver_uid: i64) -> Result<MedalList> {
+        if !self.is_user() {
+            Err(Error::NotUser)
+        } else {
+            Ok(self
+                .acfun_api()
+                .medal_list(liver_uid, self.token.cookies.as_deref().unwrap_or_default())
+                .await?
+                .value())
+        }
     }
 }
 
@@ -441,7 +467,7 @@ impl<C> ApiClientBuilder<C> {
     }
 
     #[inline]
-    pub fn login<'a>(
+    pub fn user<'a>(
         mut self,
         account: impl Into<Cow<'a, str>>,
         password: impl Into<Cow<'a, str>>,
@@ -467,7 +493,7 @@ where
     pub async fn build(self) -> Result<ApiClient<C>> {
         let mut client = self.client;
         if !(self.account.is_empty() || self.password.is_empty()) {
-            let (login, cookies) = client.login(self.account, self.password).await?;
+            let (login, cookies) = client.user(self.account, self.password).await?;
             client.token.user_id = login.user_id;
             client.user_id_string = login.user_id.to_string();
             client.token.cookies = Some(cookies);
@@ -554,12 +580,14 @@ mod tests {
             .parse()
             .expect("LIVER_UID should be an integer");
         let client = ApiClientBuilder::default_client()?
-            .login(account, password)
+            .user(account, password)
             .liver_uid(liver_uid)
             .build()
             .await?;
         let _gifts: GiftList = client.get().await?;
         let _live_list: LiveList = client.get().await?;
+        let _medal_list: MedalList = client.get_medal_list(liver_uid).await?;
+        let _medal_list: MedalList = client.get().await?;
 
         Ok(())
     }

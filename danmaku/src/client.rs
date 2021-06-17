@@ -58,7 +58,7 @@ impl DanmakuToken {
 
 #[cfg(feature = "api")]
 impl DanmakuToken {
-    pub async fn new(liver_uid: i64) -> Result<Self> {
+    pub async fn visitor(liver_uid: i64) -> Result<Self> {
         let client = ApiClientBuilder::default_client()?
             .liver_uid(liver_uid)
             .build()
@@ -67,13 +67,13 @@ impl DanmakuToken {
         Ok(Self::from_token_live(client.token(), client.live()))
     }
 
-    pub async fn login<'a>(
+    pub async fn user<'a>(
         account: impl Into<Cow<'a, str>>,
         password: impl Into<Cow<'a, str>>,
         liver_uid: i64,
     ) -> Result<Self> {
         let client = ApiClientBuilder::default_client()?
-            .login(account, password)
+            .user(account, password)
             .liver_uid(liver_uid)
             .build()
             .await?;
@@ -153,19 +153,21 @@ impl DanmakuClient<WsClient> {
 
     #[cfg(feature = "api")]
     #[inline]
-    pub async fn anonymous(liver_uid: i64) -> Result<Self> {
-        Ok(Self::default_client(DanmakuToken::new(liver_uid).await?))
+    pub async fn visitor(liver_uid: i64) -> Result<Self> {
+        Ok(Self::default_client(
+            DanmakuToken::visitor(liver_uid).await?,
+        ))
     }
 
     #[cfg(feature = "api")]
     #[inline]
-    pub async fn login<'a>(
+    pub async fn user<'a>(
         account: impl Into<Cow<'a, str>>,
         password: impl Into<Cow<'a, str>>,
         liver_uid: i64,
     ) -> Result<Self> {
         Ok(Self::default_client(
-            DanmakuToken::login(account, password, liver_uid).await?,
+            DanmakuToken::user(account, password, liver_uid).await?,
         ))
     }
 
@@ -473,7 +475,7 @@ mod tests {
             .expect("need to set the LIVER_UID environment variable to the liver's uid")
             .parse()
             .expect("LIVER_UID should be an integer");
-        let mut client = DanmakuClient::anonymous(liver_uid).await?;
+        let mut client = DanmakuClient::visitor(liver_uid).await?;
         let action_rx = client.action_signal();
         let action = async {
             while let Ok(action) = action_rx.recv().await {

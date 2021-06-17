@@ -27,3 +27,13 @@ impl Rest for LiveList {
         client.get_live_list(1_000_000, 0).await
     }
 }
+
+#[async_trait]
+impl Rest for MedalList {
+    async fn request<C>(client: &ApiClient<C>) -> Result<Self>
+    where
+        C: pretend::client::Client + Send + Sync,
+    {
+        client.get_medal_list(0).await
+    }
+}

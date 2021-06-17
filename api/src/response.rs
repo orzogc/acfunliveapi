@@ -339,3 +339,57 @@ pub struct LiveType {
     pub category_id: i64,
     pub category_name: String,
 }
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct MedalList {
+    pub result: i64,
+    pub medal_list: Vec<Medal>,
+    #[serde(default)]
+    pub rank_index: String,
+    pub live_gift_config: LiveGiftConfig,
+    pub medal_degree_limit: MedalDegreeLimit,
+    #[serde(default)]
+    pub club_name: String,
+    #[serde(default)]
+    pub medal: Medal,
+    #[serde(rename = "host-name")]
+    pub host_name: String,
+    pub status: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct Medal {
+    pub uper_id: i64,
+    pub friendship_degree: i64,
+    pub join_club_time: i64,
+    pub club_name: String,
+    pub wear_medal: bool,
+    pub uper_name: String,
+    pub uper_head_url: String,
+    pub current_degree_limit: i64,
+    pub level: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct LiveGiftConfig {
+    pub before_discount_gift_count: i64,
+    pub live_gift_id: i64,
+    pub after_discount_gift_count: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
+pub struct MedalDegreeLimit {
+    pub uper_id: i64,
+    pub gift_degree: i64,
+    pub gift_degree_limit: i64,
+    pub peach_degree: i64,
+    pub peach_degree_limit: i64,
+    pub live_watch_degree: i64,
+    pub live_watch_degree_limit: i64,
+    pub banana_degree: i64,
+    pub banana_degree_limit: i64,
+}

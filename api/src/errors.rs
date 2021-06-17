@@ -8,8 +8,8 @@ pub enum Error {
     GetDidFailed,
     #[error("invalid uid: {0}")]
     InvalidUid(i64),
-    #[error("login was needed")]
-    NoLogin,
+    #[error("visitor or user login was needed")]
+    NoVisitorOrUserLogin,
     #[error("index {1} in {0} was out of range")]
     IndexOutOfRange(&'static str, usize),
     #[error("live ID was empty")]
@@ -24,6 +24,8 @@ pub enum Error {
     HeaderToStrError(#[from] pretend::http::header::ToStrError),
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
+    #[error("user login was needed")]
+    NotUser,
 
     #[cfg(feature = "default_http_client")]
     #[error(transparent)]

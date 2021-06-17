@@ -65,4 +65,11 @@ pub(crate) trait AcFunApi {
     #[request(method = "POST", path = "/rest/app/live/channel")]
     #[header(name = "Cookie", value = "{cookie}")]
     async fn live_list(&self, form: &LiveListForm, cookie: &str) -> Result<Json<LiveList>>;
+
+    #[request(
+        method = "GET",
+        path = "/rest/app/fansClub/live/medalInfo?uperId={liver_uid}"
+    )]
+    #[header(name = "Cookie", value = "{cookie}")]
+    async fn medal_list(&self, liver_uid: i64, cookie: &str) -> Result<Json<MedalList>>;
 }
