@@ -5,13 +5,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("the WebSocket client failed to connect the server")]
-    WsConnectError(#[source] Box<dyn std::error::Error>),
+    WsConnectError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket client failed to read the message from the server")]
-    WsReadError(#[source] Box<dyn std::error::Error>),
+    WsReadError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket client failed to send the message to the server")]
-    WsWriteError(#[source] Box<dyn std::error::Error>),
+    WsWriteError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket client failed to close the connection")]
-    WsCloseError(#[source] Box<dyn std::error::Error>),
+    WsCloseError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket connection was closed")]
     WsClosed,
     #[error(transparent)]
