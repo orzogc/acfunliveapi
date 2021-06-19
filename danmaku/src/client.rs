@@ -1,12 +1,12 @@
 use crate::{danmaku::*, global::*, proto::*, websocket::*, Error, Result};
 use async_compression::futures::bufread::GzipDecoder;
+use async_timer::Interval;
 use futures::{
     channel::{mpsc, oneshot},
     io::AsyncReadExt,
     try_join,
     {sink::SinkExt, stream::StreamExt},
 };
-use futures_timer::Delay;
 use prost::Message;
 use std::time::Duration;
 
@@ -275,7 +275,7 @@ impl<C: WebSocket> DanmakuClient<C> {
         let (mut ws_tx, mut ws_rx) = mpsc::channel::<Command>(CHANNEL_SIZE);
         let mut read_ws_tx = ws_tx.clone();
         let mut hb_ws_tx = ws_tx.clone();
-        let (hb_tx, hb_rx) = oneshot::channel::<u64>();
+        let (hb_tx, hb_rx) = oneshot::channel::<Interval>();
         let write = async {
             let mut hb_tx = Some(hb_tx);
             while let Some(cmd) = ws_rx.next().await {
@@ -286,7 +286,8 @@ impl<C: WebSocket> DanmakuClient<C> {
                     }
                     Command::StartHeartbeat(interval) => {
                         if let Some(tx) = hb_tx.take() {
-                            tx.send(interval).or(Err(Error::SendOneshotError))?;
+                            let timer = async_timer::interval(Duration::from_millis(interval));
+                            tx.send(timer).or(Err(Error::SendOneshotError))?;
                         }
                     }
                     Command::Heartbeat => {
@@ -338,7 +339,7 @@ impl<C: WebSocket> DanmakuClient<C> {
             Result::<()>::Err(Error::StopDanmaku("stop reading"))
         };
         let heartbeat = async {
-            let interval = hb_rx.await?;
+            let mut timer = hb_rx.await?;
             let mut heartbeat_seq_id: i64 = 0;
 
             loop {
@@ -348,7 +349,7 @@ impl<C: WebSocket> DanmakuClient<C> {
                     hb_ws_tx.send(Command::KeepAlive).await?;
                 }
 
-                Delay::new(Duration::from_millis(interval)).await;
+                timer.as_mut().await;
             }
 
             #[allow(unreachable_code)]
@@ -466,8 +467,8 @@ async fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::{future::FutureExt, select};
     use std::env;
+    use tokio::{select, time::sleep};
 
     #[tokio::test]
     async fn test_danmaku() -> Result<()> {
@@ -495,13 +496,13 @@ mod tests {
             }
         };
         select! {
-            result = client.danmaku().fuse() => {
+            result = client.danmaku() => {
                 result?;
             }
-            _ = action.fuse() => {}
-            _ = state.fuse() => {}
-            _ = notify.fuse() => {}
-            _ = Delay::new(Duration::from_secs(60)).fuse() => {}
+            _ = action => {}
+            _ = state => {}
+            _ = notify => {}
+            _ = sleep(Duration::from_secs(60)) => {}
         }
 
         Ok(())
