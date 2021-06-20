@@ -434,8 +434,8 @@ where
 
 pub struct ApiClientBuilder<C> {
     client: ApiClient<C>,
-    account: String,
-    password: String,
+    account: Option<String>,
+    password: Option<String>,
     liver_uid: i64,
 }
 
@@ -445,8 +445,8 @@ impl ApiClientBuilder<PRClient> {
     pub fn default_client() -> Result<Self> {
         Ok(Self {
             client: ApiClient::default_client()?,
-            account: String::new(),
-            password: String::new(),
+            account: None,
+            password: None,
             liver_uid: 0,
         })
     }
@@ -460,8 +460,8 @@ impl<C> ApiClientBuilder<C> {
     {
         Ok(Self {
             client: ApiClient::new(client)?,
-            account: String::new(),
-            password: String::new(),
+            account: None,
+            password: None,
             liver_uid: 0,
         })
     }
@@ -472,8 +472,8 @@ impl<C> ApiClientBuilder<C> {
         account: impl Into<Cow<'a, str>>,
         password: impl Into<Cow<'a, str>>,
     ) -> Self {
-        self.account = account.into().into_owned();
-        self.password = password.into().into_owned();
+        self.account = Some(account.into().into_owned());
+        self.password = Some(password.into().into_owned());
 
         self
     }
@@ -492,8 +492,8 @@ where
 {
     pub async fn build(self) -> Result<ApiClient<C>> {
         let mut client = self.client;
-        if !(self.account.is_empty() || self.password.is_empty()) {
-            let (login, cookies) = client.user(self.account, self.password).await?;
+        if let Some((account, password)) = self.account.zip(self.password) {
+            let (login, cookies) = client.user(account, password).await?;
             client.token.user_id = login.user_id;
             client.user_id_string = login.user_id.to_string();
             client.token.cookies = Some(cookies);
