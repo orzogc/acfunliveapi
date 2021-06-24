@@ -38,6 +38,7 @@ pub enum AcFunToken {
     User(UserToken),
 }
 
+#[derive(Clone, Debug)]
 struct Clients<C> {
     acfun_id: Pretend<C, UrlResolver>,
     acfun_live: Pretend<C, UrlResolver>,
@@ -46,11 +47,9 @@ struct Clients<C> {
     kuaishou_zt: Pretend<C, UrlResolver>,
 }
 
-impl<C> Clients<C> {
-    fn new(client: C) -> Result<Self>
-    where
-        C: Clone,
-    {
+impl<C: Clone> Clients<C> {
+    #[inline]
+    fn new(client: C) -> Result<Self> {
         Ok(Self {
             acfun_id: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_ID)?),
             acfun_live: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_LIVE)?),
@@ -63,20 +62,9 @@ impl<C> Clients<C> {
 
 #[cfg(feature = "default_http_client")]
 impl Clients<PRClient> {
+    #[inline]
     fn default_clients() -> Result<Self> {
-        let client = default_reqwest_client()?;
-
-        Ok(Self {
-            acfun_id: Pretend::for_client(PRClient::new(client.clone()))
-                .with_url(Url::parse(ACFUN_ID)?),
-            acfun_live: Pretend::for_client(PRClient::new(client.clone()))
-                .with_url(Url::parse(ACFUN_LIVE)?),
-            acfun_api: Pretend::for_client(PRClient::new(client.clone()))
-                .with_url(Url::parse(ACFUN_API)?),
-            //acfun_member: Pretend::for_client(PRClient::new(client.clone())).with_url(Url::parse(ACFUN_MEMBER)?),
-            kuaishou_zt: Pretend::for_client(PRClient::new(client))
-                .with_url(Url::parse(KUAISHOU_ZT)?),
-        })
+        Self::new(PRClient::new(default_reqwest_client()?))
     }
 }
 
@@ -130,6 +118,7 @@ pub struct Live {
     pub stream_list: Vec<Stream>,
 }
 
+#[derive(Clone, Debug)]
 pub struct ApiClient<C> {
     clients: Clients<C>,
     token: ApiToken,
@@ -390,6 +379,7 @@ where
         T::request(self).await
     }
 
+    #[inline]
     pub async fn get_gift_list(&self, live_id: impl Into<Cow<'_, str>>) -> Result<GiftList> {
         let live_id = live_id.into();
         if live_id.is_empty() {
@@ -405,6 +395,7 @@ where
         }
     }
 
+    #[inline]
     pub async fn get_live_list(&self, count: u32, page: u32) -> Result<LiveList> {
         Ok(self
             .acfun_api()
@@ -419,6 +410,7 @@ where
             .value())
     }
 
+    #[inline]
     pub async fn get_medal_list(&self, liver_uid: i64) -> Result<MedalList> {
         if !self.is_user() {
             Err(Error::NotUser)
@@ -432,6 +424,7 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ApiClientBuilder<C> {
     client: ApiClient<C>,
     account: Option<String>,
