@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Login {
     pub result: i64,
     pub img: String,
@@ -10,7 +10,7 @@ pub struct Login {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct VisitorToken {
     pub result: i64,
     pub ac_security: String,
@@ -20,7 +20,7 @@ pub struct VisitorToken {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct UserToken {
     pub result: i64,
     pub ssecurity: String,
@@ -32,7 +32,7 @@ pub struct UserToken {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveInfo {
     pub result: i64,
     pub data: LiveInfoData,
@@ -40,12 +40,11 @@ pub struct LiveInfo {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveInfoData {
     pub live_id: String,
     pub available_tickets: Vec<String>,
     pub enter_room_attach: String,
-    #[serde(skip_serializing)]
     pub(crate) video_play_res: String,
     #[serde(default)]
     pub stream_info: StreamInfo,
@@ -59,7 +58,7 @@ pub struct LiveInfoData {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Notice {
     pub user_id: i64,
     pub user_name: String,
@@ -68,24 +67,23 @@ pub struct Notice {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveInfoConfig {
     pub gift_slot_size: i64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct StreamInfo {
     pub live_adaptive_manifest: Vec<LiveAdaptiveManifest>,
-    #[serde(rename = "liveAdaptiveConfig", skip_serializing)]
-    pub(crate) live_adaptive_config_string: String,
+    pub(crate) live_adaptive_config: String,
     #[serde(default)]
-    pub live_adaptive_config: LiveAdaptiveConfig,
+    pub adaptive_config: LiveAdaptiveConfig,
     pub stream_name: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveAdaptiveManifest {
     pub free_traffic_cdn: bool,
     pub version: String,
@@ -95,14 +93,14 @@ pub struct LiveAdaptiveManifest {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct AdaptationSet {
     pub gop_duration: i64,
     pub representation: Vec<Representation>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Representation {
     pub id: i64,
     pub url: String,
@@ -172,7 +170,7 @@ pub struct LiveshowConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct GiftList {
     pub result: i64,
     pub data: GiftData,
@@ -180,7 +178,7 @@ pub struct GiftList {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct GiftData {
     pub gift_list: Vec<Gift>,
     pub external_display_gift_id: i64,
@@ -189,7 +187,7 @@ pub struct GiftData {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Gift {
     pub gift_id: i64,
     pub gift_name: String,
@@ -210,7 +208,7 @@ pub struct Gift {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct GiftPicList {
     pub cdn: String,
     pub url: String,
@@ -219,14 +217,14 @@ pub struct GiftPicList {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct ExternalDisplayGift {
     pub gift_list: Vec<Gift>,
     pub tips_delay_time: i64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveList {
     pub result: i64,
     pub request_id: String,
@@ -239,69 +237,74 @@ pub struct LiveList {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveData {
-    pub disable_danmaku_show: bool,
+    pub result: Option<i64>,
+    #[serde(rename = "host-name")]
+    pub host_name: Option<String>,
+    pub visitor: Option<i64>,
+    pub author_id: i64,
+    pub user: UserInfo,
     pub request_id: String,
-    pub group_id: String,
+    pub group_id: Option<String>,
     pub action: i64,
     pub href: String,
-    pub online_count: i64,
-    pub cover_urls: Vec<String>,
-    pub user: UserInfo,
-    pub title: String,
-    pub like_count: i64,
     pub live_id: String,
-    pub author_id: i64,
-    pub create_time: i64,
-    pub format_like_count: String,
-    pub format_online_count: String,
-    pub portrait: bool,
     pub stream_name: String,
-    pub cdn_auth_biz: i64,
-    pub panoramic: bool,
-    pub biz_custom_data: String,
+    pub create_time: i64,
+    pub title: String,
+    pub cover_urls: Vec<String>,
     pub r#type: LiveType,
+    pub portrait: bool,
+    pub panoramic: bool,
+    pub online_count: i64,
+    pub format_online_count: String,
+    pub like_count: i64,
+    pub format_like_count: String,
     pub has_fans_club: bool,
+    pub biz_custom_data: String,
+    pub cdn_auth_biz: i64,
+    pub disable_danmaku_show: bool,
     pub paid_show_user_buy_status: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct UserInfo {
     pub action: i64,
     pub href: String,
-    pub contribute_count: String,
-    pub is_following: bool,
-    pub following_status: i64,
+    pub id: String,
+    pub name: String,
     pub name_color: i64,
-    pub sex_trend: i64,
-    pub verified_type: Option<i64>,
-    pub verified_types: Option<Vec<i64>>,
-    pub following_count: String,
-    pub verified_text: Option<String>,
     pub head_url: String,
+    pub user_head_img_info: UserAvatar,
+    pub head_cdn_urls: Vec<AvatarCdnUrl>,
+    pub avatar_image: String,
     pub avatar_frame: i64,
     pub avatar_frame_mobile_img: String,
     pub avatar_frame_pc_img: String,
-    pub gender: i64,
-    pub live_id: String,
-    pub avatar_image: String,
-    pub user_head_img_info: UserAvatar,
-    pub fan_count: String,
-    pub name: String,
-    pub signature: Option<String>,
-    pub head_cdn_urls: Vec<AvatarCdnUrl>,
-    pub is_join_up_college: Option<bool>,
+    pub is_followed: bool,
+    pub is_following: bool,
+    pub following_status: i64,
+    pub following_count: String,
     pub following_count_value: i64,
-    pub fan_count_value: i64,
+    pub contribute_count: String,
     pub contribute_count_value: i64,
-    pub id: String,
+    pub fan_count: String,
+    pub fan_count_value: i64,
+    pub gender: i64,
+    pub sex_trend: i64,
+    pub verified_type: Option<i64>,
+    pub verified_types: Option<Vec<i64>>,
+    pub verified_text: Option<String>,
+    pub signature: Option<String>,
+    pub is_join_up_college: Option<bool>,
     pub come_from: Option<String>,
+    pub live_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct UserAvatar {
     pub width: i64,
     pub height: i64,
@@ -311,27 +314,27 @@ pub struct UserAvatar {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct ThumbnailImage {
     pub cdn_urls: Vec<CdnUrl>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct CdnUrl {
     pub url: String,
     pub free_traffic_cdn: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct AvatarCdnUrl {
     pub url: String,
     pub free_traffic_cdn: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveType {
     pub id: i64,
     pub name: String,
@@ -340,7 +343,7 @@ pub struct LiveType {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct MedalList {
     pub result: i64,
     pub medal_list: Vec<Medal>,
@@ -355,7 +358,7 @@ pub struct MedalList {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Medal {
     pub uper_id: i64,
     pub friendship_degree: i64,
@@ -369,7 +372,7 @@ pub struct Medal {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct LiveGiftConfig {
     pub before_discount_gift_count: i64,
     pub live_gift_id: i64,
@@ -377,7 +380,7 @@ pub struct LiveGiftConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct MedalDegreeLimit {
     pub uper_id: i64,
     pub gift_degree: i64,
