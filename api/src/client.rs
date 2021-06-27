@@ -359,18 +359,11 @@ where
             return Err(Error::NoVisitorOrUserLogin);
         }
 
-        let mut info: LiveInfo = self
+        Ok(self
             .kuaishou_zt()
             .start_play(&self.ks_query(), &StartPlayForm::new(liver_uid))
             .await?
-            .value();
-        info.data.stream_info =
-            serde_json::from_str(std::mem::take(&mut info.data.video_play_res).as_str())?;
-        info.data.stream_info.adaptive_config = serde_json::from_str(
-            std::mem::take(&mut info.data.stream_info.live_adaptive_config).as_str(),
-        )?;
-
-        Ok(info)
+            .value())
     }
 
     #[inline]
@@ -516,11 +509,11 @@ where
                 title: info.data.caption,
                 start_time: info.data.live_start_time,
                 panoramic: info.data.panoramic,
-                stream_name: info.data.stream_info.stream_name,
+                stream_name: info.data.video_play_res.stream_name,
                 stream_list: Vec::new(),
             };
             info.data
-                .stream_info
+                .video_play_res
                 .live_adaptive_manifest
                 .get_mut(0)
                 .ok_or(Error::IndexOutOfRange("live_adaptive_manifest", 0))?

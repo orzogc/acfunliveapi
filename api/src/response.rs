@@ -1,5 +1,67 @@
 use serde::{Deserialize, Serialize};
 
+fn deserialize_stream_info<'de, D>(deserializer: D) -> Result<StreamInfo, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct StringOrStruct;
+
+    impl<'de> serde::de::Visitor<'de> for StringOrStruct {
+        type Value = StreamInfo;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("string or map")
+        }
+
+        fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            serde_json::from_str(s).map_err(E::custom)
+        }
+
+        fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::MapAccess<'de>,
+        {
+            Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        }
+    }
+
+    deserializer.deserialize_any(StringOrStruct)
+}
+
+fn deserialize_live_adaptive_config<'de, D>(deserializer: D) -> Result<LiveAdaptiveConfig, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct StringOrStruct;
+
+    impl<'de> serde::de::Visitor<'de> for StringOrStruct {
+        type Value = LiveAdaptiveConfig;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("string or map")
+        }
+
+        fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            serde_json::from_str(s).map_err(E::custom)
+        }
+
+        fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::MapAccess<'de>,
+        {
+            Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        }
+    }
+
+    deserializer.deserialize_any(StringOrStruct)
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Login {
@@ -45,9 +107,8 @@ pub struct LiveInfoData {
     pub live_id: String,
     pub available_tickets: Vec<String>,
     pub enter_room_attach: String,
-    pub(crate) video_play_res: String,
-    #[serde(default)]
-    pub stream_info: StreamInfo,
+    #[serde(deserialize_with = "deserialize_stream_info")]
+    pub video_play_res: StreamInfo,
     pub caption: String,
     pub ticket_retry_count: i64,
     pub ticket_retry_interval_ms: i64,
@@ -76,9 +137,8 @@ pub struct LiveInfoConfig {
 #[serde(rename_all = "camelCase")]
 pub struct StreamInfo {
     pub live_adaptive_manifest: Vec<LiveAdaptiveManifest>,
-    pub(crate) live_adaptive_config: String,
-    #[serde(default)]
-    pub adaptive_config: LiveAdaptiveConfig,
+    #[serde(deserialize_with = "deserialize_live_adaptive_config")]
+    pub live_adaptive_config: LiveAdaptiveConfig,
     pub stream_name: String,
 }
 
