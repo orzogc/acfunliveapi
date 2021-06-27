@@ -3,6 +3,7 @@ use acfunliveapi::{
     response::{Gift, GiftList},
 };
 use acfunlivedanmaku::{client::*, danmaku::*, Result};
+use futures::stream::StreamExt;
 use std::{collections::HashMap, env};
 use tokio::select;
 
@@ -24,21 +25,21 @@ async fn main() -> Result<()> {
         .map(|g| (g.gift_id, g))
         .collect();
     let mut client: DanmakuClient<_> = api_client.into();
-    let action_rx = client.action_signal();
+    let mut action_rx = client.action_signal();
     let action = async {
-        while let Ok(action) = action_rx.recv().await {
+        while let Some(action) = action_rx.next().await {
             handle_action(action, &gifts);
         }
     };
-    let state_rx = client.state_signal();
+    let mut state_rx = client.state_signal();
     let state = async {
-        while let Ok(state) = state_rx.recv().await {
+        while let Some(state) = state_rx.next().await {
             handle_state(state);
         }
     };
-    let notify_rx = client.notify_signal();
+    let mut notify_rx = client.notify_signal();
     let notify = async {
-        while let Ok(notify) = notify_rx.recv().await {
+        while let Some(notify) = notify_rx.next().await {
             handle_notify(notify);
         }
     };

@@ -1,4 +1,5 @@
 use crate::{acproto, global::*, Error, Result};
+use futures::channel::mpsc;
 use prost::Message;
 
 #[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
@@ -41,16 +42,17 @@ pub enum NotifySignal {
     ManagerState(acproto::CommonNotifySignalLiveManagerState),
 }
 
-fn transfer<T>(err: async_channel::TrySendError<T>) -> Result<()> {
-    match err {
-        async_channel::TrySendError::Full(_) => Ok(()),
-        async_channel::TrySendError::Closed(_) => Err(Error::SendDanmakuError),
+fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
+    if err.is_full() {
+        Ok(())
+    } else {
+        Err(Error::SendDanmakuError)
     }
 }
 
 pub(crate) async fn action_signal(
     payload: &[u8],
-    action_tx: &Option<async_channel::Sender<ActionSignal>>,
+    action_tx: &mut Option<mpsc::Sender<ActionSignal>>,
 ) -> Result<()> {
     let action = acproto::ZtLiveScActionSignal::decode(payload)?;
 
@@ -123,7 +125,7 @@ pub(crate) async fn action_signal(
 
 pub(crate) async fn state_signal(
     payload: &[u8],
-    state_tx: &Option<async_channel::Sender<StateSignal>>,
+    state_tx: &mut Option<mpsc::Sender<StateSignal>>,
 ) -> Result<()> {
     let state = acproto::ZtLiveScStateSignal::decode(payload)?;
 
@@ -255,7 +257,7 @@ pub(crate) async fn state_signal(
 
 pub(crate) async fn notify_signal(
     payload: &[u8],
-    notify_tx: &Option<async_channel::Sender<NotifySignal>>,
+    notify_tx: &mut Option<mpsc::Sender<NotifySignal>>,
 ) -> Result<()> {
     let notify = acproto::ZtLiveScNotifySignal::decode(payload)?;
 

@@ -133,9 +133,9 @@ impl<C> From<&ApiClient<C>> for DanmakuToken {
 pub struct DanmakuClient<C> {
     token: DanmakuToken,
     ws_client: C,
-    action_tx: Option<async_channel::Sender<ActionSignal>>,
-    state_tx: Option<async_channel::Sender<StateSignal>>,
-    notify_tx: Option<async_channel::Sender<NotifySignal>>,
+    action_tx: Option<mpsc::Sender<ActionSignal>>,
+    state_tx: Option<mpsc::Sender<StateSignal>>,
+    notify_tx: Option<mpsc::Sender<NotifySignal>>,
 }
 
 #[cfg(feature = "default_ws_client")]
@@ -227,22 +227,22 @@ impl<C> DanmakuClient<C> {
     }
 
     #[inline]
-    pub fn action_signal(&mut self) -> async_channel::Receiver<ActionSignal> {
-        let (tx, rx) = async_channel::bounded(CHANNEL_SIZE);
+    pub fn action_signal(&mut self) -> mpsc::Receiver<ActionSignal> {
+        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.action_tx = Some(tx);
         rx
     }
 
     #[inline]
-    pub fn state_signal(&mut self) -> async_channel::Receiver<StateSignal> {
-        let (tx, rx) = async_channel::bounded(CHANNEL_SIZE);
+    pub fn state_signal(&mut self) -> mpsc::Receiver<StateSignal> {
+        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.state_tx = Some(tx);
         rx
     }
 
     #[inline]
-    pub fn notify_signal(&mut self) -> async_channel::Receiver<NotifySignal> {
-        let (tx, rx) = async_channel::bounded(CHANNEL_SIZE);
+    pub fn notify_signal(&mut self) -> mpsc::Receiver<NotifySignal> {
+        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.notify_tx = Some(tx);
         rx
     }
@@ -255,9 +255,9 @@ impl<C: WebSocket> DanmakuClient<C> {
         }
         let mut data: ProtoData = self.token.into();
         let (mut ws_write, mut ws_read) = self.ws_client.connect(DANMAKU_SERVER).await?;
-        let action_tx = self.action_tx;
-        let state_tx = self.state_tx;
-        let notify_tx = self.notify_tx;
+        let mut action_tx = self.action_tx;
+        let mut state_tx = self.state_tx;
+        let mut notify_tx = self.notify_tx;
 
         ws_write
             .write(acproto::RegisterRequest::generate(&mut data)?)
@@ -282,7 +282,14 @@ impl<C: WebSocket> DanmakuClient<C> {
                 match cmd {
                     Command::Decode(msg) => {
                         let payload = data.decode(msg.as_slice())?;
-                        handle(&payload, &mut ws_tx, &action_tx, &state_tx, &notify_tx).await?;
+                        handle(
+                            &payload,
+                            &mut ws_tx,
+                            &mut action_tx,
+                            &mut state_tx,
+                            &mut notify_tx,
+                        )
+                        .await?;
                     }
                     Command::StartHeartbeat(interval) => {
                         if let Some(tx) = hb_tx.take() {
@@ -389,9 +396,9 @@ impl<C> From<&ApiClient<C>> for DanmakuClient<WsClient> {
 async fn handle(
     stream: &acproto::DownstreamPayload,
     ws_tx: &mut mpsc::Sender<Command>,
-    action_tx: &Option<async_channel::Sender<ActionSignal>>,
-    state_tx: &Option<async_channel::Sender<StateSignal>>,
-    notify_tx: &Option<async_channel::Sender<NotifySignal>>,
+    action_tx: &mut Option<mpsc::Sender<ActionSignal>>,
+    state_tx: &mut Option<mpsc::Sender<StateSignal>>,
+    notify_tx: &mut Option<mpsc::Sender<NotifySignal>>,
 ) -> Result<()> {
     match stream.command.as_str() {
         GLOBAL_CS_CMD => {
@@ -477,21 +484,21 @@ mod tests {
             .parse()
             .expect("LIVER_UID should be an integer");
         let mut client = DanmakuClient::visitor(liver_uid).await?;
-        let action_rx = client.action_signal();
+        let mut action_rx = client.action_signal();
         let action = async {
-            while let Ok(action) = action_rx.recv().await {
+            while let Some(action) = action_rx.next().await {
                 println!("{:?}", action);
             }
         };
-        let state_rx = client.state_signal();
+        let mut state_rx = client.state_signal();
         let state = async {
-            while let Ok(state) = state_rx.recv().await {
+            while let Some(state) = state_rx.next().await {
                 println!("{:?}", state);
             }
         };
-        let notify_rx = client.notify_signal();
+        let mut notify_rx = client.notify_signal();
         let notify = async {
-            while let Ok(notify) = notify_rx.recv().await {
+            while let Some(notify) = notify_rx.next().await {
                 println!("{:?}", notify);
             }
         };

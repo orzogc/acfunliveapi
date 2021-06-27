@@ -20,7 +20,6 @@ _serde = ["serde"]
 [dependencies]
 acfunliveapi = { version = "0.1.0", path = "../api", optional = true }
 aes = "0.7.4"
-async-channel = "1.6.1"
 async-compression = { version = "0.3.8", features = ["futures-io", "gzip"] }
 async-timer = "0.7.4"
 async-trait = "0.1.50"
