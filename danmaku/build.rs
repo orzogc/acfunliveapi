@@ -13,7 +13,7 @@ fn main() -> std::io::Result<()> {
     let mut config = prost_build::Config::new();
     config.type_attribute(
         ".",
-        "#[cfg_attr(feature = \"_serde\", derive(serde::Deserialize, serde::Serialize))]",
+        "#[cfg_attr(feature = \"_serde\", derive(::serde::Deserialize, ::serde::Serialize))]",
     );
     config.compile_protos(protos.as_slice(), &[im_path, zt_path])?;
 

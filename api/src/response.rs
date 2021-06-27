@@ -47,7 +47,7 @@ pub struct LiveInfoData {
     pub enter_room_attach: String,
     #[serde(skip_serializing)]
     pub(crate) video_play_res: String,
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub stream_info: StreamInfo,
     pub caption: String,
     pub ticket_retry_count: i64,
@@ -79,7 +79,7 @@ pub struct StreamInfo {
     pub live_adaptive_manifest: Vec<LiveAdaptiveManifest>,
     #[serde(rename = "liveAdaptiveConfig", skip_serializing)]
     pub(crate) live_adaptive_config_string: String,
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     pub live_adaptive_config: LiveAdaptiveConfig,
     pub stream_name: String,
 }
@@ -277,8 +277,7 @@ pub struct UserInfo {
     pub name_color: i64,
     pub sex_trend: i64,
     pub verified_type: Option<i64>,
-    #[serde(default)]
-    pub verified_types: Vec<i64>,
+    pub verified_types: Option<Vec<i64>>,
     pub following_count: String,
     pub verified_text: Option<String>,
     pub head_url: String,
@@ -345,14 +344,11 @@ pub struct LiveType {
 pub struct MedalList {
     pub result: i64,
     pub medal_list: Vec<Medal>,
-    #[serde(default)]
-    pub rank_index: String,
+    pub rank_index: Option<String>,
     pub live_gift_config: LiveGiftConfig,
     pub medal_degree_limit: MedalDegreeLimit,
-    #[serde(default)]
-    pub club_name: String,
-    #[serde(default)]
-    pub medal: Medal,
+    pub club_name: Option<String>,
+    pub medal: Option<Medal>,
     #[serde(rename = "host-name")]
     pub host_name: String,
     pub status: i64,

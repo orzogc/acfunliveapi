@@ -364,9 +364,11 @@ where
             .start_play(&self.ks_query(), &StartPlayForm::new(liver_uid))
             .await?
             .value();
-        info.data.stream_info = serde_json::from_str(info.data.video_play_res.as_str())?;
-        info.data.stream_info.live_adaptive_config =
-            serde_json::from_str(info.data.stream_info.live_adaptive_config_string.as_str())?;
+        info.data.stream_info =
+            serde_json::from_str(std::mem::take(&mut info.data.video_play_res).as_str())?;
+        info.data.stream_info.live_adaptive_config = serde_json::from_str(
+            std::mem::take(&mut info.data.stream_info.live_adaptive_config_string).as_str(),
+        )?;
 
         Ok(info)
     }
