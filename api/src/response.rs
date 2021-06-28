@@ -288,7 +288,7 @@ pub struct ExternalDisplayGift {
 pub struct LiveList {
     pub result: i64,
     pub request_id: String,
-    pub live_list: Vec<LiveData>,
+    pub live_list: Vec<UserLiveInfo>,
     pub count: i64,
     pub pcursor: String,
     #[serde(rename = "host-name")]
@@ -298,7 +298,7 @@ pub struct LiveList {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveData {
+pub struct UserLiveInfo {
     pub result: Option<i64>,
     #[serde(rename = "host-name")]
     pub host_name: Option<String>,
@@ -307,6 +307,13 @@ pub struct LiveData {
     pub user: UserInfo,
     pub request_id: String,
     pub group_id: Option<String>,
+    #[serde(flatten)]
+    pub live_data: Option<LiveData>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveData {
     pub action: i64,
     pub href: String,
     pub live_id: String,
@@ -314,7 +321,8 @@ pub struct LiveData {
     pub create_time: i64,
     pub title: String,
     pub cover_urls: Vec<String>,
-    pub r#type: LiveType,
+    #[serde(rename = "type")]
+    pub live_type: LiveType,
     pub portrait: bool,
     pub panoramic: bool,
     pub online_count: i64,

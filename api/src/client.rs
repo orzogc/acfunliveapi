@@ -417,6 +417,11 @@ where
                 .value())
         }
     }
+
+    #[inline]
+    pub async fn get_user_live_info(&self, liver_uid: i64) -> Result<UserLiveInfo> {
+        Ok(self.acfun_api().live_info(liver_uid).await?.value())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -552,6 +557,8 @@ mod tests {
             .await?;
         let _gifts: GiftList = client.get().await?;
         let _live_list: LiveList = client.get().await?;
+        let _info = client.get_user_live_info(1).await?;
+        let _info: UserLiveInfo = client.get().await?;
 
         Ok(())
     }
@@ -574,8 +581,10 @@ mod tests {
             .await?;
         let _gifts: GiftList = client.get().await?;
         let _live_list: LiveList = client.get().await?;
-        let _medal_list: MedalList = client.get_medal_list(liver_uid).await?;
+        let _medal_list = client.get_medal_list(0).await?;
         let _medal_list: MedalList = client.get().await?;
+        let _info = client.get_user_live_info(1).await?;
+        let _info: UserLiveInfo = client.get().await?;
 
         Ok(())
     }

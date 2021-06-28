@@ -10,6 +10,7 @@ pub trait Rest: Sized {
 
 #[async_trait]
 impl Rest for GiftList {
+    #[inline]
     async fn request<C>(client: &ApiClient<C>) -> Result<Self>
     where
         C: pretend::client::Client + Send + Sync,
@@ -20,6 +21,7 @@ impl Rest for GiftList {
 
 #[async_trait]
 impl Rest for LiveList {
+    #[inline]
     async fn request<C>(client: &ApiClient<C>) -> Result<Self>
     where
         C: pretend::client::Client + Send + Sync,
@@ -30,10 +32,22 @@ impl Rest for LiveList {
 
 #[async_trait]
 impl Rest for MedalList {
+    #[inline]
     async fn request<C>(client: &ApiClient<C>) -> Result<Self>
     where
         C: pretend::client::Client + Send + Sync,
     {
-        client.get_medal_list(0).await
+        client.get_medal_list(client.liver_uid()).await
+    }
+}
+
+#[async_trait]
+impl Rest for UserLiveInfo {
+    #[inline]
+    async fn request<C>(client: &ApiClient<C>) -> Result<Self>
+    where
+        C: pretend::client::Client + Send + Sync,
+    {
+        client.get_user_live_info(client.liver_uid()).await
     }
 }

@@ -72,4 +72,7 @@ pub(crate) trait AcFunApi {
     )]
     #[header(name = "Cookie", value = "{cookie}")]
     async fn medal_list(&self, liver_uid: i64, cookie: &str) -> Result<Json<MedalList>>;
+
+    #[request(method = "GET", path = "/rest/app/live/info?authorId={liver_uid}")]
+    async fn live_info(&self, liver_uid: i64) -> Result<Json<UserLiveInfo>>;
 }
