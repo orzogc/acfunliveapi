@@ -84,7 +84,7 @@ impl WebSocketRead for WsRead {
 }
 
 #[cfg(feature = "default_ws_client")]
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct WsClient;
 

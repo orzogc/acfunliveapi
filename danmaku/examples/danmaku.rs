@@ -55,109 +55,115 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_action(action: ActionSignal, gifts: &HashMap<i64, Gift>) {
-    match action {
-        ActionSignal::Comment(d) => {
-            let user_info = d.user_info.unwrap_or_default();
-            println!(
-                "{} {}({}): {}",
-                d.send_time_ms, user_info.nickname, user_info.user_id, d.content
-            );
-        }
-        ActionSignal::Like(d) => {
-            let user_info = d.user_info.unwrap_or_default();
-            println!(
-                "{} {}({}) liked",
-                d.send_time_ms, user_info.nickname, user_info.user_id
-            );
-        }
-        ActionSignal::EnterRoom(d) => {
-            let user_info = d.user_info.unwrap_or_default();
-            println!(
-                "{} {}({}) entered the live room",
-                d.send_time_ms, user_info.nickname, user_info.user_id
-            );
-        }
-        ActionSignal::FollowAuthor(d) => {
-            let user_info = d.user_info.unwrap_or_default();
-            println!(
-                "{} {}({}) followed the liver",
-                d.send_time_ms, user_info.nickname, user_info.user_id
-            );
-        }
-        ActionSignal::ThrowBanana(d) => {
-            let user_info = d.visitor.unwrap_or_default();
-            println!(
-                "{} {}({}) threw {} bananas",
-                d.send_time_ms, user_info.name, user_info.user_id, d.count
-            );
-        }
-        ActionSignal::Gift(d) => {
-            let user_info = d.user.unwrap_or_default();
-            println!(
-                "{} {}({}) gave {} * {} (all: {})",
-                d.send_time_ms,
-                user_info.nickname,
-                user_info.user_id,
-                d.count,
-                gifts.get(&d.gift_id).cloned().unwrap_or_default().gift_name,
-                d.count * d.combo
-            );
-        }
-        ActionSignal::RichText(d) => println!("{:?}", d),
-        ActionSignal::JoinClub(d) => {
-            let fans_info = d.fans_info.unwrap_or_default();
-            let uper_info = d.uper_info.unwrap_or_default();
-            println!(
-                "{} {}({}) joined {}({})'s club",
-                d.join_time_ms,
-                fans_info.name,
-                fans_info.user_id,
-                uper_info.name,
-                uper_info.user_id
-            );
+fn handle_action(action: Vec<ActionSignal>, gifts: &HashMap<i64, Gift>) {
+    for action in action {
+        match action {
+            ActionSignal::Comment(d) => {
+                let user_info = d.user_info.unwrap_or_default();
+                println!(
+                    "{} {}({}): {}",
+                    d.send_time_ms, user_info.nickname, user_info.user_id, d.content
+                );
+            }
+            ActionSignal::Like(d) => {
+                let user_info = d.user_info.unwrap_or_default();
+                println!(
+                    "{} {}({}) liked",
+                    d.send_time_ms, user_info.nickname, user_info.user_id
+                );
+            }
+            ActionSignal::EnterRoom(d) => {
+                let user_info = d.user_info.unwrap_or_default();
+                println!(
+                    "{} {}({}) entered the live room",
+                    d.send_time_ms, user_info.nickname, user_info.user_id
+                );
+            }
+            ActionSignal::FollowAuthor(d) => {
+                let user_info = d.user_info.unwrap_or_default();
+                println!(
+                    "{} {}({}) followed the liver",
+                    d.send_time_ms, user_info.nickname, user_info.user_id
+                );
+            }
+            ActionSignal::ThrowBanana(d) => {
+                let user_info = d.visitor.unwrap_or_default();
+                println!(
+                    "{} {}({}) threw {} bananas",
+                    d.send_time_ms, user_info.name, user_info.user_id, d.count
+                );
+            }
+            ActionSignal::Gift(d) => {
+                let user_info = d.user.unwrap_or_default();
+                println!(
+                    "{} {}({}) gave {} * {} (all: {})",
+                    d.send_time_ms,
+                    user_info.nickname,
+                    user_info.user_id,
+                    d.count,
+                    gifts.get(&d.gift_id).cloned().unwrap_or_default().gift_name,
+                    d.count * d.combo
+                );
+            }
+            ActionSignal::RichText(d) => println!("{:?}", d),
+            ActionSignal::JoinClub(d) => {
+                let fans_info = d.fans_info.unwrap_or_default();
+                let uper_info = d.uper_info.unwrap_or_default();
+                println!(
+                    "{} {}({}) joined {}({})'s club",
+                    d.join_time_ms,
+                    fans_info.name,
+                    fans_info.user_id,
+                    uper_info.name,
+                    uper_info.user_id
+                );
+            }
         }
     }
 }
 
-fn handle_state(state: StateSignal) {
-    match state {
-        StateSignal::AcFunDisplayInfo(d) => println!("bananas count: {}", d.banana_count),
-        StateSignal::DisplayInfo(d) => println!(
-            "viewers count: {}, likes count: {}, likes delta: {}",
-            d.watching_count, d.like_count, d.like_delta
-        ),
-        StateSignal::TopUsers(d) => d.user.into_iter().for_each(|u| {
-            let user_info = u.user_info.unwrap_or_default();
-            println!(
-                "top user: {}({}) (coins: {})",
-                user_info.nickname, user_info.user_id, u.display_send_amount
-            );
-        }),
-        StateSignal::RecentComment(d) => d.comment.into_iter().for_each(|c| {
-            let user_info = c.user_info.unwrap_or_default();
-            println!(
-                "recent comment: {} {}({}): {}",
-                c.send_time_ms, user_info.nickname, user_info.user_id, c.content
-            );
-        }),
-        StateSignal::RedpackList(d) => println!("{:?}", d),
-        StateSignal::ChatCall(d) => println!("{:?}", d),
-        StateSignal::ChatAccept(d) => println!("{:?}", d),
-        StateSignal::ChatReady(d) => println!("{:?}", d),
-        StateSignal::ChatEnd(d) => println!("{:?}", d),
-        StateSignal::AuthorChatCall(d) => println!("{:?}", d),
-        StateSignal::AuthorChatAccept(d) => println!("{:?}", d),
-        StateSignal::AuthorChatReady(d) => println!("{:?}", d),
-        StateSignal::AuthorChatEnd(d) => println!("{:?}", d),
-        StateSignal::AuthorChatChangeSoundConfig(d) => println!("{:?}", d),
+fn handle_state(state: Vec<StateSignal>) {
+    for state in state {
+        match state {
+            StateSignal::AcFunDisplayInfo(d) => println!("bananas count: {}", d.banana_count),
+            StateSignal::DisplayInfo(d) => println!(
+                "viewers count: {}, likes count: {}, likes delta: {}",
+                d.watching_count, d.like_count, d.like_delta
+            ),
+            StateSignal::TopUsers(d) => d.user.into_iter().for_each(|u| {
+                let user_info = u.user_info.unwrap_or_default();
+                println!(
+                    "top user: {}({}) (coins: {})",
+                    user_info.nickname, user_info.user_id, u.display_send_amount
+                );
+            }),
+            StateSignal::RecentComment(d) => d.comment.into_iter().for_each(|c| {
+                let user_info = c.user_info.unwrap_or_default();
+                println!(
+                    "recent comment: {} {}({}): {}",
+                    c.send_time_ms, user_info.nickname, user_info.user_id, c.content
+                );
+            }),
+            StateSignal::RedpackList(d) => println!("{:?}", d),
+            StateSignal::ChatCall(d) => println!("{:?}", d),
+            StateSignal::ChatAccept(d) => println!("{:?}", d),
+            StateSignal::ChatReady(d) => println!("{:?}", d),
+            StateSignal::ChatEnd(d) => println!("{:?}", d),
+            StateSignal::AuthorChatCall(d) => println!("{:?}", d),
+            StateSignal::AuthorChatAccept(d) => println!("{:?}", d),
+            StateSignal::AuthorChatReady(d) => println!("{:?}", d),
+            StateSignal::AuthorChatEnd(d) => println!("{:?}", d),
+            StateSignal::AuthorChatChangeSoundConfig(d) => println!("{:?}", d),
+        }
     }
 }
 
-fn handle_notify(notify: NotifySignal) {
-    match notify {
-        NotifySignal::KickedOut(d) => println!("kicked out: {}", d.reason),
-        NotifySignal::ViolationAlert(d) => println!("violation alert: {}", d.violation_content),
-        NotifySignal::ManagerState(d) => println!("manager state: {:?}", d.state()),
+fn handle_notify(notify: Vec<NotifySignal>) {
+    for notify in notify {
+        match notify {
+            NotifySignal::KickedOut(d) => println!("kicked out: {}", d.reason),
+            NotifySignal::ViolationAlert(d) => println!("violation alert: {}", d.violation_content),
+            NotifySignal::ManagerState(d) => println!("manager state: {:?}", d.state()),
+        }
     }
 }

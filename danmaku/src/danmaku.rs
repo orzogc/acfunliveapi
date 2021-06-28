@@ -2,7 +2,7 @@ use crate::{acproto, global::*, Error, Result};
 use futures::channel::mpsc;
 use prost::Message;
 
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ActionSignal {
     Comment(acproto::CommonActionSignalComment),
@@ -15,7 +15,7 @@ pub enum ActionSignal {
     JoinClub(acproto::AcfunActionSignalJoinClub),
 }
 
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum StateSignal {
     AcFunDisplayInfo(acproto::AcfunStateSignalDisplayInfo),
@@ -34,7 +34,7 @@ pub enum StateSignal {
     AuthorChatChangeSoundConfig(acproto::CommonStateSignalAuthorChatChangeSoundConfig),
 }
 
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum NotifySignal {
     KickedOut(acproto::CommonNotifySignalKickedOut),
@@ -52,245 +52,174 @@ fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
 
 pub(crate) async fn action_signal(
     payload: &[u8],
-    action_tx: &mut Option<mpsc::Sender<ActionSignal>>,
+    action_tx: &mut mpsc::Sender<Vec<ActionSignal>>,
 ) -> Result<()> {
     let action = acproto::ZtLiveScActionSignal::decode(payload)?;
-
-    for item in action.item {
+    let mut v = Vec::with_capacity(action.item.iter().map(|i| i.payload.len()).sum());
+    for item in action.item.iter().rev() {
         for pl in item.payload.iter().rev() {
             match item.signal_type.as_str() {
                 COMMENT => {
-                    if let Some(tx) = action_tx {
-                        let comment = acproto::CommonActionSignalComment::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::Comment(comment))
-                            .or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::Comment(
+                        acproto::CommonActionSignalComment::decode(pl.as_slice())?,
+                    ));
                 }
                 LIKE => {
-                    if let Some(tx) = action_tx {
-                        let like = acproto::CommonActionSignalLike::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::Like(like)).or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::Like(acproto::CommonActionSignalLike::decode(
+                        pl.as_slice(),
+                    )?));
                 }
-                USER_ENTER_ROOM => {
-                    if let Some(tx) = action_tx {
-                        let enter =
-                            acproto::CommonActionSignalUserEnterRoom::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::EnterRoom(enter))
-                            .or_else(transfer)?;
-                    }
-                }
+                USER_ENTER_ROOM => v.push(ActionSignal::EnterRoom(
+                    acproto::CommonActionSignalUserEnterRoom::decode(pl.as_slice())?,
+                )),
                 FOLLOW_AUTHOR => {
-                    if let Some(tx) = action_tx {
-                        let follow =
-                            acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::FollowAuthor(follow))
-                            .or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::FollowAuthor(
+                        acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?,
+                    ));
                 }
                 THROW_BANANA => {
-                    if let Some(tx) = action_tx {
-                        let banana = acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::ThrowBanana(banana))
-                            .or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::ThrowBanana(
+                        acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?,
+                    ));
                 }
                 GIFT => {
-                    if let Some(tx) = action_tx {
-                        let gift = acproto::CommonActionSignalGift::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::Gift(gift)).or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::Gift(acproto::CommonActionSignalGift::decode(
+                        pl.as_slice(),
+                    )?));
                 }
                 RICH_TEXT => {
-                    if let Some(tx) = action_tx {
-                        let rich_text = acproto::CommonActionSignalRichText::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::RichText(rich_text))
-                            .or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::RichText(
+                        acproto::CommonActionSignalRichText::decode(pl.as_slice())?,
+                    ));
                 }
                 JOIN_CLUB => {
-                    if let Some(tx) = action_tx {
-                        let join = acproto::AcfunActionSignalJoinClub::decode(pl.as_slice())?;
-                        tx.try_send(ActionSignal::JoinClub(join))
-                            .or_else(transfer)?;
-                    }
+                    v.push(ActionSignal::JoinClub(
+                        acproto::AcfunActionSignalJoinClub::decode(pl.as_slice())?,
+                    ));
                 }
                 _ => {}
             }
         }
     }
+    action_tx.try_send(v).or_else(transfer)?;
 
     Ok(())
 }
 
 pub(crate) async fn state_signal(
     payload: &[u8],
-    state_tx: &mut Option<mpsc::Sender<StateSignal>>,
+    state_tx: &mut mpsc::Sender<Vec<StateSignal>>,
 ) -> Result<()> {
     let state = acproto::ZtLiveScStateSignal::decode(payload)?;
-
+    let mut v = Vec::with_capacity(state.item.len());
     for item in state.item.iter().rev() {
         match item.signal_type.as_str() {
             ACFUN_DISPLAY_INFO => {
-                if let Some(tx) = state_tx {
-                    let banana =
-                        acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::AcFunDisplayInfo(banana))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AcFunDisplayInfo(
+                    acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?,
+                ));
             }
             DISPLAY_INFO => {
-                if let Some(tx) = state_tx {
-                    let display =
-                        acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::DisplayInfo(display))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::DisplayInfo(
+                    acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?,
+                ));
             }
             TOP_USERS => {
-                if let Some(tx) = state_tx {
-                    let top_user =
-                        acproto::CommonStateSignalTopUsers::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::TopUsers(top_user))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::TopUsers(
+                    acproto::CommonStateSignalTopUsers::decode(item.payload.as_slice())?,
+                ));
             }
             RECENT_COMMENT => {
-                if let Some(tx) = state_tx {
-                    let comment =
-                        acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::RecentComment(comment))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::RecentComment(
+                    acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?,
+                ));
             }
             REDPACK_LIST => {
-                if let Some(tx) = state_tx {
-                    let redpack = acproto::CommonStateSignalCurrentRedpackList::decode(
-                        item.payload.as_slice(),
-                    )?;
-                    tx.try_send(StateSignal::RedpackList(redpack))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::RedpackList(
+                    acproto::CommonStateSignalCurrentRedpackList::decode(item.payload.as_slice())?,
+                ));
             }
             CHAT_CALL => {
-                if let Some(tx) = state_tx {
-                    let chat_call =
-                        acproto::CommonStateSignalChatCall::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::ChatCall(chat_call))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::ChatCall(
+                    acproto::CommonStateSignalChatCall::decode(item.payload.as_slice())?,
+                ));
             }
             CHAT_ACCEPT => {
-                if let Some(tx) = state_tx {
-                    let chat_accept =
-                        acproto::CommonStateSignalChatAccept::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::ChatAccept(chat_accept))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::ChatAccept(
+                    acproto::CommonStateSignalChatAccept::decode(item.payload.as_slice())?,
+                ));
             }
             CHAT_READY => {
-                if let Some(tx) = state_tx {
-                    let chat_ready =
-                        acproto::CommonStateSignalChatReady::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::ChatReady(chat_ready))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::ChatReady(
+                    acproto::CommonStateSignalChatReady::decode(item.payload.as_slice())?,
+                ));
             }
-            CHAT_END => {
-                if let Some(tx) = state_tx {
-                    let chat_end =
-                        acproto::CommonStateSignalChatEnd::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::ChatEnd(chat_end))
-                        .or_else(transfer)?;
-                }
-            }
+            CHAT_END => v.push(StateSignal::ChatEnd(
+                acproto::CommonStateSignalChatEnd::decode(item.payload.as_slice())?,
+            )),
             AUTHOR_CHAT_CALL => {
-                if let Some(tx) = state_tx {
-                    let chat_call =
-                        acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::AuthorChatCall(chat_call))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AuthorChatCall(
+                    acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?,
+                ));
             }
             AUTHOR_CHAT_ACCEPT => {
-                if let Some(tx) = state_tx {
-                    let chat_accept = acproto::CommonStateSignalAuthorChatAccept::decode(
-                        item.payload.as_slice(),
-                    )?;
-                    tx.try_send(StateSignal::AuthorChatAccept(chat_accept))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AuthorChatAccept(
+                    acproto::CommonStateSignalAuthorChatAccept::decode(item.payload.as_slice())?,
+                ));
             }
             AUTHOR_CHAT_READY => {
-                if let Some(tx) = state_tx {
-                    let chat_ready =
-                        acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::AuthorChatReady(chat_ready))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AuthorChatReady(
+                    acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?,
+                ));
             }
             AUTHOR_CHAT_END => {
-                if let Some(tx) = state_tx {
-                    let chat_end =
-                        acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?;
-                    tx.try_send(StateSignal::AuthorChatEnd(chat_end))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AuthorChatEnd(
+                    acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?,
+                ));
             }
             SOUND_CONFIG => {
-                if let Some(tx) = state_tx {
-                    let sound_config =
-                        acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
-                            item.payload.as_slice(),
-                        )?;
-                    tx.try_send(StateSignal::AuthorChatChangeSoundConfig(sound_config))
-                        .or_else(transfer)?;
-                }
+                v.push(StateSignal::AuthorChatChangeSoundConfig(
+                    acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
+                        item.payload.as_slice(),
+                    )?,
+                ));
             }
             LIVE_STATE => {}
             _ => {}
         }
     }
+    state_tx.try_send(v).or_else(transfer)?;
 
     Ok(())
 }
 
 pub(crate) async fn notify_signal(
     payload: &[u8],
-    notify_tx: &mut Option<mpsc::Sender<NotifySignal>>,
+    notify_tx: &mut mpsc::Sender<Vec<NotifySignal>>,
 ) -> Result<()> {
     let notify = acproto::ZtLiveScNotifySignal::decode(payload)?;
-
+    let mut v = Vec::with_capacity(notify.item.len());
     for item in notify.item.iter().rev() {
         match item.signal_type.as_str() {
             KICKED_OUT => {
-                if let Some(tx) = notify_tx {
-                    let kicked_out =
-                        acproto::CommonNotifySignalKickedOut::decode(item.payload.as_slice())?;
-                    tx.try_send(NotifySignal::KickedOut(kicked_out))
-                        .or_else(transfer)?;
-                }
+                v.push(NotifySignal::KickedOut(
+                    acproto::CommonNotifySignalKickedOut::decode(item.payload.as_slice())?,
+                ));
             }
             VIOLATION_ALERT => {
-                if let Some(tx) = notify_tx {
-                    let alert =
-                        acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?;
-                    tx.try_send(NotifySignal::ViolationAlert(alert))
-                        .or_else(transfer)?;
-                }
+                v.push(NotifySignal::ViolationAlert(
+                    acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?,
+                ));
             }
             MANAGER_STATE => {
-                if let Some(tx) = notify_tx {
-                    let state = acproto::CommonNotifySignalLiveManagerState::decode(
-                        item.payload.as_slice(),
-                    )?;
-                    tx.try_send(NotifySignal::ManagerState(state))
-                        .or_else(transfer)?;
-                }
+                v.push(NotifySignal::ManagerState(
+                    acproto::CommonNotifySignalLiveManagerState::decode(item.payload.as_slice())?,
+                ));
             }
             _ => {}
         }
     }
+    notify_tx.try_send(v).or_else(transfer)?;
 
     Ok(())
 }

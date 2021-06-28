@@ -32,7 +32,7 @@ enum Command {
     Close,
 }
 
-#[cfg_attr(feature = "_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct DanmakuToken {
     pub user_id: i64,
@@ -145,9 +145,9 @@ impl<C> From<&ApiClient<C>> for DanmakuToken {
 pub struct DanmakuClient<C> {
     token: DanmakuToken,
     ws_client: C,
-    action_tx: Option<mpsc::Sender<ActionSignal>>,
-    state_tx: Option<mpsc::Sender<StateSignal>>,
-    notify_tx: Option<mpsc::Sender<NotifySignal>>,
+    action_tx: Option<mpsc::Sender<Vec<ActionSignal>>>,
+    state_tx: Option<mpsc::Sender<Vec<StateSignal>>>,
+    notify_tx: Option<mpsc::Sender<Vec<NotifySignal>>>,
 }
 
 #[cfg(feature = "default_ws_client")]
@@ -239,21 +239,21 @@ impl<C> DanmakuClient<C> {
     }
 
     #[inline]
-    pub fn action_signal(&mut self) -> mpsc::Receiver<ActionSignal> {
+    pub fn action_signal(&mut self) -> mpsc::Receiver<Vec<ActionSignal>> {
         let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.action_tx = Some(tx);
         rx
     }
 
     #[inline]
-    pub fn state_signal(&mut self) -> mpsc::Receiver<StateSignal> {
+    pub fn state_signal(&mut self) -> mpsc::Receiver<Vec<StateSignal>> {
         let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.state_tx = Some(tx);
         rx
     }
 
     #[inline]
-    pub fn notify_signal(&mut self) -> mpsc::Receiver<NotifySignal> {
+    pub fn notify_signal(&mut self) -> mpsc::Receiver<Vec<NotifySignal>> {
         let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
         self.notify_tx = Some(tx);
         rx
@@ -408,9 +408,9 @@ impl<C> From<&ApiClient<C>> for DanmakuClient<WsClient> {
 async fn handle(
     stream: &acproto::DownstreamPayload,
     ws_tx: &mut mpsc::Sender<Command>,
-    action_tx: &mut Option<mpsc::Sender<ActionSignal>>,
-    state_tx: &mut Option<mpsc::Sender<StateSignal>>,
-    notify_tx: &mut Option<mpsc::Sender<NotifySignal>>,
+    action_tx: &mut Option<mpsc::Sender<Vec<ActionSignal>>>,
+    state_tx: &mut Option<mpsc::Sender<Vec<StateSignal>>>,
+    notify_tx: &mut Option<mpsc::Sender<Vec<NotifySignal>>>,
 ) -> Result<()> {
     match stream.command.as_str() {
         GLOBAL_CS_CMD => {
@@ -450,13 +450,19 @@ async fn handle(
             };
             match message.message_type.as_str() {
                 ACTION_SIGNAL => {
-                    action_signal(payload.as_slice(), action_tx).await?;
+                    if let Some(tx) = action_tx {
+                        action_signal(payload.as_slice(), tx).await?;
+                    }
                 }
                 STATE_SIGNAL => {
-                    state_signal(payload.as_slice(), state_tx).await?;
+                    if let Some(tx) = state_tx {
+                        state_signal(payload.as_slice(), tx).await?;
+                    }
                 }
                 NOTIFY_SIGNAL => {
-                    notify_signal(payload.as_slice(), notify_tx).await?;
+                    if let Some(tx) = notify_tx {
+                        notify_signal(payload.as_slice(), tx).await?;
+                    }
                 }
                 STATUS_CHANGED => {
                     let status = acproto::ZtLiveScStatusChanged::decode(payload.as_slice())?;
