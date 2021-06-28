@@ -122,7 +122,7 @@ pub struct Live {
 pub struct ApiClient<C> {
     clients: Clients<C>,
     token: ApiToken,
-    live: Live,
+    live: Option<Live>,
     user_id_string: String,
 }
 
@@ -133,7 +133,7 @@ impl ApiClient<PRClient> {
         Ok(Self {
             clients: Clients::default_clients()?,
             token: ApiToken::default(),
-            live: Live::default(),
+            live: None,
             user_id_string: String::new(),
         })
     }
@@ -148,7 +148,7 @@ impl<C> ApiClient<C> {
         Ok(Self {
             clients: Clients::new(client)?,
             token: ApiToken::default(),
-            live: Live::default(),
+            live: None,
             user_id_string: String::new(),
         })
     }
@@ -172,18 +172,23 @@ impl<C> ApiClient<C> {
 
     #[inline]
     pub fn set_live(&mut self, live: Live) -> &mut Self {
-        self.live = live;
+        self.live = Some(live);
         self
     }
 
     #[inline]
-    pub fn live(&self) -> &Live {
-        &self.live
+    pub fn live(&self) -> Option<&Live> {
+        self.live.as_ref()
     }
 
     #[inline]
-    pub fn live_mut(&mut self) -> &mut Live {
-        &mut self.live
+    pub fn live_mut(&mut self) -> Option<&mut Live> {
+        self.live.as_mut()
+    }
+
+    #[inline]
+    pub fn has_live(&self) -> bool {
+        self.live.is_some()
     }
 
     #[inline]
@@ -227,13 +232,13 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn liver_uid(&self) -> i64 {
-        self.live.liver_uid
+    pub fn liver_uid(&self) -> Option<i64> {
+        self.live().map(|l| l.liver_uid)
     }
 
     #[inline]
-    pub fn live_id(&self) -> &str {
-        self.live.live_id.as_str()
+    pub fn live_id(&self) -> Option<&str> {
+        self.live().map(|l| l.live_id.as_str())
     }
 
     #[inline]
@@ -353,17 +358,16 @@ where
 
     pub async fn get_live_info(&self, liver_uid: i64) -> Result<LiveInfo> {
         if liver_uid <= 0 {
-            return Err(Error::InvalidUid(liver_uid));
+            Err(Error::InvalidUid(liver_uid))
+        } else if !self.is_login() {
+            Err(Error::VisitorOrUserNotLogin)
+        } else {
+            Ok(self
+                .kuaishou_zt()
+                .start_play(&self.ks_query(), &StartPlayForm::new(liver_uid))
+                .await?
+                .value())
         }
-        if !self.is_login() {
-            return Err(Error::NoVisitorOrUserLogin);
-        }
-
-        Ok(self
-            .kuaishou_zt()
-            .start_play(&self.ks_query(), &StartPlayForm::new(liver_uid))
-            .await?
-            .value())
     }
 
     #[inline]
@@ -380,7 +384,7 @@ where
         if live_id.is_empty() {
             Err(Error::EmptyLiveId)
         } else if !self.is_login() {
-            Err(Error::NoVisitorOrUserLogin)
+            Err(Error::VisitorOrUserNotLogin)
         } else {
             Ok(self
                 .kuaishou_zt()
@@ -407,7 +411,9 @@ where
 
     #[inline]
     pub async fn get_medal_list(&self, liver_uid: i64) -> Result<MedalList> {
-        if !self.is_user() {
+        if liver_uid < 0 {
+            Err(Error::InvalidUid(liver_uid))
+        } else if !self.is_user() {
             Err(Error::NotUser)
         } else {
             Ok(self
@@ -420,7 +426,11 @@ where
 
     #[inline]
     pub async fn get_user_live_info(&self, liver_uid: i64) -> Result<UserLiveInfo> {
-        Ok(self.acfun_api().live_info(liver_uid).await?.value())
+        if liver_uid <= 0 {
+            Err(Error::InvalidUid(liver_uid))
+        } else {
+            Ok(self.acfun_api().live_info(liver_uid).await?.value())
+        }
     }
 }
 
@@ -429,7 +439,7 @@ pub struct ApiClientBuilder<C> {
     client: ApiClient<C>,
     account: Option<String>,
     password: Option<String>,
-    liver_uid: i64,
+    liver_uid: Option<i64>,
 }
 
 #[cfg(feature = "default_http_client")]
@@ -440,7 +450,7 @@ impl ApiClientBuilder<PRClient> {
             client: ApiClient::default_client()?,
             account: None,
             password: None,
-            liver_uid: 0,
+            liver_uid: None,
         })
     }
 }
@@ -455,7 +465,7 @@ impl<C> ApiClientBuilder<C> {
             client: ApiClient::new(client)?,
             account: None,
             password: None,
-            liver_uid: 0,
+            liver_uid: None,
         })
     }
 
@@ -473,7 +483,7 @@ impl<C> ApiClientBuilder<C> {
 
     #[inline]
     pub fn liver_uid(mut self, liver_uid: i64) -> Self {
-        self.liver_uid = liver_uid;
+        self.liver_uid = Some(liver_uid);
 
         self
     }
@@ -504,10 +514,10 @@ where
                 client.token.service_token = token.acfun_midground_api_st;
             }
         }
-        if self.liver_uid != 0 {
-            let mut info = client.get_live_info(self.liver_uid).await?;
-            client.live = Live {
-                liver_uid: self.liver_uid,
+        if let Some(liver_uid) = self.liver_uid {
+            let mut info = client.get_live_info(liver_uid).await?;
+            let mut live = Live {
+                liver_uid,
                 live_id: info.data.live_id,
                 tickets: info.data.available_tickets,
                 enter_room_attach: info.data.enter_room_attach,
@@ -526,13 +536,14 @@ where
                 .representation
                 .iter_mut()
                 .for_each(|r| {
-                    client.live.stream_list.push(Stream {
+                    live.stream_list.push(Stream {
                         url: std::mem::take(&mut r.url),
                         bitrate: r.bitrate,
                         quality_type: std::mem::take(&mut r.quality_type),
                         quality_name: std::mem::take(&mut r.name),
                     })
                 });
+            client.live = Some(live);
         }
 
         Ok(client)

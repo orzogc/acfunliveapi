@@ -64,7 +64,10 @@ impl DanmakuToken {
             .build()
             .await?;
 
-        Ok(Self::from_token_live(client.token(), client.live()))
+        Ok(Self::from_token_live(
+            client.token(),
+            client.live().ok_or(acfunliveapi::Error::NotSetLiverUid)?,
+        ))
     }
 
     pub async fn user<'a>(
@@ -78,7 +81,10 @@ impl DanmakuToken {
             .build()
             .await?;
 
-        Ok(Self::from_token_live(client.token(), client.live()))
+        Ok(Self::from_token_live(
+            client.token(),
+            client.live().ok_or(acfunliveapi::Error::NotSetLiverUid)?,
+        ))
     }
 
     pub async fn from_api_client<C>(client: &ApiClient<C>, liver_uid: i64) -> Result<Self>
@@ -117,7 +123,10 @@ impl DanmakuToken {
 impl<C> From<ApiClient<C>> for DanmakuToken {
     #[inline]
     fn from(client: ApiClient<C>) -> Self {
-        Self::from_token_live(client.token(), client.live())
+        match client.live() {
+            Some(live) => Self::from_token_live(client.token(), live),
+            None => Self::from_token_live(client.token(), &Live::default()),
+        }
     }
 }
 
@@ -125,7 +134,10 @@ impl<C> From<ApiClient<C>> for DanmakuToken {
 impl<C> From<&ApiClient<C>> for DanmakuToken {
     #[inline]
     fn from(client: &ApiClient<C>) -> Self {
-        Self::from_token_live(client.token(), client.live())
+        match client.live() {
+            Some(live) => Self::from_token_live(client.token(), live),
+            None => Self::from_token_live(client.token(), &Live::default()),
+        }
     }
 }
 

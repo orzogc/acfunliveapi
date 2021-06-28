@@ -1,4 +1,4 @@
-use crate::{client::ApiClient, response::*, Result};
+use crate::{client::ApiClient, response::*, Error, Result};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -15,7 +15,10 @@ impl Rest for GiftList {
     where
         C: pretend::client::Client + Send + Sync,
     {
-        client.get_gift_list(client.live_id()).await
+        match client.live_id() {
+            Some(live_id) => client.get_gift_list(live_id).await,
+            None => Err(Error::NotSetLiverUid),
+        }
     }
 }
 
@@ -37,7 +40,10 @@ impl Rest for MedalList {
     where
         C: pretend::client::Client + Send + Sync,
     {
-        client.get_medal_list(client.liver_uid()).await
+        match client.liver_uid() {
+            Some(liver_uid) => client.get_medal_list(liver_uid).await,
+            None => Err(Error::NotSetLiverUid),
+        }
     }
 }
 
@@ -48,6 +54,9 @@ impl Rest for UserLiveInfo {
     where
         C: pretend::client::Client + Send + Sync,
     {
-        client.get_user_live_info(client.liver_uid()).await
+        match client.liver_uid() {
+            Some(liver_uid) => client.get_user_live_info(liver_uid).await,
+            None => Err(Error::NotSetLiverUid),
+        }
     }
 }
