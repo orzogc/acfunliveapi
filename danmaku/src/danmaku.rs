@@ -59,44 +59,30 @@ pub(crate) async fn action_signal(
     for item in action.item.iter().rev() {
         for pl in item.payload.iter().rev() {
             match item.signal_type.as_str() {
-                COMMENT => {
-                    v.push(ActionSignal::Comment(
-                        acproto::CommonActionSignalComment::decode(pl.as_slice())?,
-                    ));
-                }
-                LIKE => {
-                    v.push(ActionSignal::Like(acproto::CommonActionSignalLike::decode(
-                        pl.as_slice(),
-                    )?));
-                }
+                COMMENT => v.push(ActionSignal::Comment(
+                    acproto::CommonActionSignalComment::decode(pl.as_slice())?,
+                )),
+                LIKE => v.push(ActionSignal::Like(acproto::CommonActionSignalLike::decode(
+                    pl.as_slice(),
+                )?)),
                 USER_ENTER_ROOM => v.push(ActionSignal::EnterRoom(
                     acproto::CommonActionSignalUserEnterRoom::decode(pl.as_slice())?,
                 )),
-                FOLLOW_AUTHOR => {
-                    v.push(ActionSignal::FollowAuthor(
-                        acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?,
-                    ));
-                }
-                THROW_BANANA => {
-                    v.push(ActionSignal::ThrowBanana(
-                        acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?,
-                    ));
-                }
-                GIFT => {
-                    v.push(ActionSignal::Gift(acproto::CommonActionSignalGift::decode(
-                        pl.as_slice(),
-                    )?));
-                }
-                RICH_TEXT => {
-                    v.push(ActionSignal::RichText(
-                        acproto::CommonActionSignalRichText::decode(pl.as_slice())?,
-                    ));
-                }
-                JOIN_CLUB => {
-                    v.push(ActionSignal::JoinClub(
-                        acproto::AcfunActionSignalJoinClub::decode(pl.as_slice())?,
-                    ));
-                }
+                FOLLOW_AUTHOR => v.push(ActionSignal::FollowAuthor(
+                    acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?,
+                )),
+                THROW_BANANA => v.push(ActionSignal::ThrowBanana(
+                    acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?,
+                )),
+                GIFT => v.push(ActionSignal::Gift(acproto::CommonActionSignalGift::decode(
+                    pl.as_slice(),
+                )?)),
+                RICH_TEXT => v.push(ActionSignal::RichText(
+                    acproto::CommonActionSignalRichText::decode(pl.as_slice())?,
+                )),
+                JOIN_CLUB => v.push(ActionSignal::JoinClub(
+                    acproto::AcfunActionSignalJoinClub::decode(pl.as_slice())?,
+                )),
                 _ => {}
             }
         }
@@ -114,76 +100,50 @@ pub(crate) async fn state_signal(
     let mut v = Vec::with_capacity(state.item.len());
     for item in state.item.iter().rev() {
         match item.signal_type.as_str() {
-            ACFUN_DISPLAY_INFO => {
-                v.push(StateSignal::AcFunDisplayInfo(
-                    acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?,
-                ));
-            }
-            DISPLAY_INFO => {
-                v.push(StateSignal::DisplayInfo(
-                    acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?,
-                ));
-            }
-            TOP_USERS => {
-                v.push(StateSignal::TopUsers(
-                    acproto::CommonStateSignalTopUsers::decode(item.payload.as_slice())?,
-                ));
-            }
-            RECENT_COMMENT => {
-                v.push(StateSignal::RecentComment(
-                    acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?,
-                ));
-            }
-            REDPACK_LIST => {
-                v.push(StateSignal::RedpackList(
-                    acproto::CommonStateSignalCurrentRedpackList::decode(item.payload.as_slice())?,
-                ));
-            }
-            CHAT_CALL => {
-                v.push(StateSignal::ChatCall(
-                    acproto::CommonStateSignalChatCall::decode(item.payload.as_slice())?,
-                ));
-            }
-            CHAT_ACCEPT => {
-                v.push(StateSignal::ChatAccept(
-                    acproto::CommonStateSignalChatAccept::decode(item.payload.as_slice())?,
-                ));
-            }
-            CHAT_READY => {
-                v.push(StateSignal::ChatReady(
-                    acproto::CommonStateSignalChatReady::decode(item.payload.as_slice())?,
-                ));
-            }
+            ACFUN_DISPLAY_INFO => v.push(StateSignal::AcFunDisplayInfo(
+                acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?,
+            )),
+            DISPLAY_INFO => v.push(StateSignal::DisplayInfo(
+                acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?,
+            )),
+            TOP_USERS => v.push(StateSignal::TopUsers(
+                acproto::CommonStateSignalTopUsers::decode(item.payload.as_slice())?,
+            )),
+            RECENT_COMMENT => v.push(StateSignal::RecentComment(
+                acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?,
+            )),
+            REDPACK_LIST => v.push(StateSignal::RedpackList(
+                acproto::CommonStateSignalCurrentRedpackList::decode(item.payload.as_slice())?,
+            )),
+            CHAT_CALL => v.push(StateSignal::ChatCall(
+                acproto::CommonStateSignalChatCall::decode(item.payload.as_slice())?,
+            )),
+            CHAT_ACCEPT => v.push(StateSignal::ChatAccept(
+                acproto::CommonStateSignalChatAccept::decode(item.payload.as_slice())?,
+            )),
+            CHAT_READY => v.push(StateSignal::ChatReady(
+                acproto::CommonStateSignalChatReady::decode(item.payload.as_slice())?,
+            )),
             CHAT_END => v.push(StateSignal::ChatEnd(
                 acproto::CommonStateSignalChatEnd::decode(item.payload.as_slice())?,
             )),
-            AUTHOR_CHAT_CALL => {
-                v.push(StateSignal::AuthorChatCall(
-                    acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?,
-                ));
-            }
-            AUTHOR_CHAT_ACCEPT => {
-                v.push(StateSignal::AuthorChatAccept(
-                    acproto::CommonStateSignalAuthorChatAccept::decode(item.payload.as_slice())?,
-                ));
-            }
-            AUTHOR_CHAT_READY => {
-                v.push(StateSignal::AuthorChatReady(
-                    acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?,
-                ));
-            }
-            AUTHOR_CHAT_END => {
-                v.push(StateSignal::AuthorChatEnd(
-                    acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?,
-                ));
-            }
-            SOUND_CONFIG => {
-                v.push(StateSignal::AuthorChatChangeSoundConfig(
-                    acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
-                        item.payload.as_slice(),
-                    )?,
-                ));
-            }
+            AUTHOR_CHAT_CALL => v.push(StateSignal::AuthorChatCall(
+                acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?,
+            )),
+            AUTHOR_CHAT_ACCEPT => v.push(StateSignal::AuthorChatAccept(
+                acproto::CommonStateSignalAuthorChatAccept::decode(item.payload.as_slice())?,
+            )),
+            AUTHOR_CHAT_READY => v.push(StateSignal::AuthorChatReady(
+                acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?,
+            )),
+            AUTHOR_CHAT_END => v.push(StateSignal::AuthorChatEnd(
+                acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?,
+            )),
+            SOUND_CONFIG => v.push(StateSignal::AuthorChatChangeSoundConfig(
+                acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
+                    item.payload.as_slice(),
+                )?,
+            )),
             LIVE_STATE => {}
             _ => {}
         }
@@ -201,21 +161,15 @@ pub(crate) async fn notify_signal(
     let mut v = Vec::with_capacity(notify.item.len());
     for item in notify.item.iter().rev() {
         match item.signal_type.as_str() {
-            KICKED_OUT => {
-                v.push(NotifySignal::KickedOut(
-                    acproto::CommonNotifySignalKickedOut::decode(item.payload.as_slice())?,
-                ));
-            }
-            VIOLATION_ALERT => {
-                v.push(NotifySignal::ViolationAlert(
-                    acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?,
-                ));
-            }
-            MANAGER_STATE => {
-                v.push(NotifySignal::ManagerState(
-                    acproto::CommonNotifySignalLiveManagerState::decode(item.payload.as_slice())?,
-                ));
-            }
+            KICKED_OUT => v.push(NotifySignal::KickedOut(
+                acproto::CommonNotifySignalKickedOut::decode(item.payload.as_slice())?,
+            )),
+            VIOLATION_ALERT => v.push(NotifySignal::ViolationAlert(
+                acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?,
+            )),
+            MANAGER_STATE => v.push(NotifySignal::ManagerState(
+                acproto::CommonNotifySignalLiveManagerState::decode(item.payload.as_slice())?,
+            )),
             _ => {}
         }
     }
