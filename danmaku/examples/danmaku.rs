@@ -118,6 +118,10 @@ fn handle_action(action: Vec<ActionSignal>, gifts: &HashMap<i64, Gift>) {
                     uper_info.user_id
                 );
             }
+            ActionSignal::Unknown(s) => println!(
+                "unknown action signal: {}",
+                String::from_utf8_lossy(s.as_slice())
+            ),
         }
     }
 }
@@ -154,6 +158,10 @@ fn handle_state(state: Vec<StateSignal>) {
             StateSignal::AuthorChatReady(d) => println!("{:?}", d),
             StateSignal::AuthorChatEnd(d) => println!("{:?}", d),
             StateSignal::AuthorChatChangeSoundConfig(d) => println!("{:?}", d),
+            StateSignal::Unknown(s) => println!(
+                "unknown state signal: {}",
+                String::from_utf8_lossy(s.as_slice())
+            ),
         }
     }
 }
@@ -164,6 +172,10 @@ fn handle_notify(notify: Vec<NotifySignal>) {
             NotifySignal::KickedOut(d) => println!("kicked out: {}", d.reason),
             NotifySignal::ViolationAlert(d) => println!("violation alert: {}", d.violation_content),
             NotifySignal::ManagerState(d) => println!("manager state: {:?}", d.state()),
+            NotifySignal::Unknown(s) => println!(
+                "unknown notify signal: {}",
+                String::from_utf8_lossy(s.as_slice())
+            ),
         }
     }
 }
