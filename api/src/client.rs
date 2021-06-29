@@ -516,7 +516,7 @@ where
         }
         if let Some(liver_uid) = self.liver_uid {
             let mut info = client.get_live_info(liver_uid).await?;
-            let mut live = Live {
+            client.live = Some(Live {
                 liver_uid,
                 live_id: info.data.live_id,
                 tickets: info.data.available_tickets,
@@ -525,25 +525,23 @@ where
                 start_time: info.data.live_start_time,
                 panoramic: info.data.panoramic,
                 stream_name: info.data.video_play_res.stream_name,
-                stream_list: Vec::new(),
-            };
-            info.data
-                .video_play_res
-                .live_adaptive_manifest
-                .get_mut(0)
-                .ok_or(Error::IndexOutOfRange("live_adaptive_manifest", 0))?
-                .adaptation_set
-                .representation
-                .iter_mut()
-                .for_each(|r| {
-                    live.stream_list.push(Stream {
+                stream_list: info
+                    .data
+                    .video_play_res
+                    .live_adaptive_manifest
+                    .get_mut(0)
+                    .ok_or(Error::IndexOutOfRange("live_adaptive_manifest", 0))?
+                    .adaptation_set
+                    .representation
+                    .iter_mut()
+                    .map(|r| Stream {
                         url: std::mem::take(&mut r.url),
                         bitrate: r.bitrate,
                         quality_type: std::mem::take(&mut r.quality_type),
                         quality_name: std::mem::take(&mut r.name),
                     })
-                });
-            client.live = Some(live);
+                    .collect(),
+            });
         }
 
         Ok(client)

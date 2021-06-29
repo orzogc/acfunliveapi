@@ -13,6 +13,7 @@ pub enum ActionSignal {
     Gift(acproto::CommonActionSignalGift),
     RichText(acproto::CommonActionSignalRichText),
     JoinClub(acproto::AcfunActionSignalJoinClub),
+    #[cfg_attr(feature = "_serde", serde(with = "serde_bytes"))]
     Unknown(Vec<u8>),
 }
 
@@ -49,6 +50,7 @@ pub enum StateSignal {
     AuthorChatReady(acproto::CommonStateSignalAuthorChatReady),
     AuthorChatEnd(acproto::CommonStateSignalAuthorChatEnd),
     AuthorChatChangeSoundConfig(acproto::CommonStateSignalAuthorChatChangeSoundConfig),
+    #[cfg_attr(feature = "_serde", serde(with = "serde_bytes"))]
     Unknown(Vec<u8>),
 }
 
@@ -58,6 +60,7 @@ pub enum NotifySignal {
     KickedOut(acproto::CommonNotifySignalKickedOut),
     ViolationAlert(acproto::CommonNotifySignalViolationAlert),
     ManagerState(acproto::CommonNotifySignalLiveManagerState),
+    #[cfg_attr(feature = "_serde", serde(with = "serde_bytes"))]
     Unknown(Vec<u8>),
 }
 
