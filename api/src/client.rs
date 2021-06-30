@@ -100,7 +100,7 @@ impl ApiToken {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Stream {
     pub url: String,
-    pub bitrate: i64,
+    pub bitrate: i32,
     pub quality_type: String,
     pub quality_name: String,
 }
@@ -356,6 +356,7 @@ where
         }
     }
 
+    #[inline]
     pub async fn get_live_info(&self, liver_uid: i64) -> Result<LiveInfo> {
         if liver_uid <= 0 {
             Err(Error::InvalidUid(liver_uid))

@@ -11,6 +11,7 @@ pub(crate) struct LoginForm<'a> {
 }
 
 impl<'a> LoginForm<'a> {
+    #[inline]
     pub(crate) fn new(username: &'a str, password: &'a str) -> Self {
         Self {
             username,

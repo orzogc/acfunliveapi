@@ -9,24 +9,28 @@ pub(crate) struct KsQuery<'a>(HashMap<&'a str, &'a str>);
 impl<'a> KsQuery<'a> {
     pub(crate) fn visitor(user_id: &'a str, device_id: &'a str, service_token: &'a str) -> Self {
         let mut query = HashMap::with_capacity(6);
-        query.insert("subBiz", "mainApp");
-        query.insert("kpn", "ACFUN_APP");
-        query.insert("kpf", "PC_WEB");
-        query.insert("userId", user_id);
-        query.insert("did", device_id);
-        query.insert("acfun.api.visitor_st", service_token);
+        query.extend([
+            ("subBiz", "mainApp"),
+            ("kpn", "ACFUN_APP"),
+            ("kpf", "PC_WEB"),
+            ("userId", user_id),
+            ("did", device_id),
+            ("acfun.api.visitor_st", service_token),
+        ]);
 
         Self(query)
     }
 
     pub(crate) fn user(user_id: &'a str, device_id: &'a str, service_token: &'a str) -> Self {
         let mut query = HashMap::with_capacity(6);
-        query.insert("subBiz", "mainApp");
-        query.insert("kpn", "ACFUN_APP");
-        query.insert("kpf", "PC_WEB");
-        query.insert("userId", user_id);
-        query.insert("did", device_id);
-        query.insert("acfun.midground.api_st", service_token);
+        query.extend([
+            ("subBiz", "mainApp"),
+            ("kpn", "ACFUN_APP"),
+            ("kpf", "PC_WEB"),
+            ("userId", user_id),
+            ("did", device_id),
+            ("acfun.midground.api_st", service_token),
+        ]);
 
         Self(query)
     }
@@ -40,6 +44,7 @@ pub(crate) struct KsForm<'a> {
 }
 
 impl<'a> KsForm<'a> {
+    #[inline]
     pub(crate) fn new(user_id: i64, live_id: &'a str) -> Self {
         Self {
             visitor_id: user_id,
@@ -56,6 +61,7 @@ pub(crate) struct StartPlayForm<'a> {
 }
 
 impl<'a> StartPlayForm<'a> {
+    #[inline]
     pub(crate) fn new(liver_uid: i64) -> Self {
         Self {
             author_id: liver_uid,

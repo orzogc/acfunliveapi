@@ -18,6 +18,7 @@ pub enum ActionSignal {
 }
 
 impl ActionSignal {
+    #[inline]
     pub fn time(&self) -> i64 {
         match self {
             ActionSignal::Comment(s) => s.send_time_ms,
@@ -64,6 +65,7 @@ pub enum NotifySignal {
     Unknown(Vec<u8>),
 }
 
+#[inline]
 fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
     if err.is_full() {
         Ok(())

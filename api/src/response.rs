@@ -65,7 +65,7 @@ where
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Login {
-    pub result: i64,
+    pub result: i32,
     pub img: String,
     pub user_id: i64,
     pub username: String,
@@ -74,7 +74,7 @@ pub struct Login {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VisitorToken {
-    pub result: i64,
+    pub result: i32,
     pub ac_security: String,
     pub user_id: i64,
     #[serde(rename = "acfun.api.visitor_st")]
@@ -84,7 +84,7 @@ pub struct VisitorToken {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserToken {
-    pub result: i64,
+    pub result: i32,
     pub ssecurity: String,
     pub user_id: i64,
     #[serde(rename = "acfun.midground.api_st")]
@@ -95,7 +95,7 @@ pub struct UserToken {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct LiveInfo {
-    pub result: i64,
+    pub result: i32,
     pub data: LiveInfoData,
     pub host: String,
 }
@@ -109,8 +109,8 @@ pub struct LiveInfoData {
     #[serde(deserialize_with = "deserialize_stream_info")]
     pub video_play_res: StreamInfo,
     pub caption: String,
-    pub ticket_retry_count: i64,
-    pub ticket_retry_interval_ms: i64,
+    pub ticket_retry_count: i32,
+    pub ticket_retry_interval_ms: i32,
     pub notices: Vec<Notice>,
     pub config: LiveInfoConfig,
     pub live_start_time: i64,
@@ -129,7 +129,7 @@ pub struct Notice {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveInfoConfig {
-    pub gift_slot_size: i64,
+    pub gift_slot_size: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -154,19 +154,19 @@ pub struct LiveAdaptiveManifest {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdaptationSet {
-    pub gop_duration: i64,
+    pub gop_duration: i32,
     pub representation: Vec<Representation>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Representation {
-    pub id: i64,
+    pub id: i32,
     pub url: String,
-    pub bitrate: i64,
+    pub bitrate: i32,
     pub quality_type: String,
     pub media_type: String,
-    pub level: i64,
+    pub level: i32,
     pub name: String,
     pub hidden: bool,
     pub enable_adaptive: bool,
@@ -175,17 +175,17 @@ pub struct Representation {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct LiveAdaptiveConfig {
-    pub buffer_init: i64,
-    pub stable_buffer_switch_up_cnt: i64,
-    pub stable_buffer_diff: i64,
-    pub stable_buffer_cnt: i64,
-    pub last_high_water_mark_in_ms: i64,
-    pub speed_down_threshold: i64,
-    pub min_state_cycle: i64,
-    pub max_switching_time: i64,
-    pub initiative_switching_time: i64,
-    pub switch_pts_diff: i64,
-    pub max_retry_cnt: i64,
+    pub buffer_init: i32,
+    pub stable_buffer_switch_up_cnt: i32,
+    pub stable_buffer_diff: i32,
+    pub stable_buffer_cnt: i32,
+    pub last_high_water_mark_in_ms: i32,
+    pub speed_down_threshold: i32,
+    pub min_state_cycle: i32,
+    pub max_switching_time: i32,
+    pub initiative_switching_time: i32,
+    pub switch_pts_diff: i32,
+    pub max_retry_cnt: i32,
     pub normal_config: NormalConfig,
     pub state_config: StateConfig,
     pub liveshow_config: LiveshowConfig,
@@ -193,44 +193,44 @@ pub struct LiveAdaptiveConfig {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct NormalConfig {
-    pub switch_down_q: i64,
-    pub switch_down_bw_frag: i64,
-    pub switch_up_bw_frag: i64,
-    pub switch_up_q: i64,
-    pub switch_time: i64,
-    pub continuous_switch_time: i64,
-    pub switch_up_bw_frag1: i64,
-    pub switch_up_bw_frag2: i64,
-    pub switch_up_bw_frag2_cnt: i64,
-    pub speed_up_threshold: i64,
+    pub switch_down_q: i32,
+    pub switch_down_bw_frag: i32,
+    pub switch_up_bw_frag: i32,
+    pub switch_up_q: i32,
+    pub switch_time: i32,
+    pub continuous_switch_time: i32,
+    pub switch_up_bw_frag1: i32,
+    pub switch_up_bw_frag2: i32,
+    pub switch_up_bw_frag2_cnt: i32,
+    pub speed_up_threshold: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct StateConfig {
-    pub frag_bw_window: i64,
+    pub frag_bw_window: i32,
     pub ls_sample_cnt: i64,
-    pub ls_steps: i64,
+    pub ls_steps: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct LiveshowConfig {
-    pub buffer_init: i64,
-    pub mobile_init_index: i64,
-    pub speed_up_threshold: i64,
-    pub switch_down_q: i64,
-    pub switch_down_bw_frag: i64,
-    pub switch_up_bw_frag: i64,
-    pub switch_up_q: i64,
-    pub switch_time: i64,
-    pub continuous_switch_time: i64,
-    pub switch_up_bw_frag1: i64,
-    pub switch_up_bw_frag2: i64,
-    pub switch_up_bw_frag2_cnt: i64,
+    pub buffer_init: i32,
+    pub mobile_init_index: i32,
+    pub speed_up_threshold: i32,
+    pub switch_down_q: i32,
+    pub switch_down_bw_frag: i32,
+    pub switch_up_bw_frag: i32,
+    pub switch_up_q: i32,
+    pub switch_time: i32,
+    pub continuous_switch_time: i32,
+    pub switch_up_bw_frag1: i32,
+    pub switch_up_bw_frag2: i32,
+    pub switch_up_bw_frag2_cnt: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct GiftList {
-    pub result: i64,
+    pub result: i32,
     pub data: GiftData,
     pub host: String,
 }
@@ -250,18 +250,18 @@ pub struct Gift {
     pub gift_id: i64,
     pub gift_name: String,
     pub ar_live_name: String,
-    pub pay_wallet_type: i64,
-    pub gift_price: i64,
+    pub pay_wallet_type: i32,
+    pub gift_price: i32,
     pub webp_pic_list: Vec<GiftPicList>,
     pub png_pic_list: Vec<GiftPicList>,
     pub small_png_pic_list: Vec<GiftPicList>,
-    pub allow_batch_send_size_list: Vec<i64>,
+    pub allow_batch_send_size_list: Vec<i32>,
     pub can_combo: bool,
     pub can_draw: bool,
-    pub magic_face_id: i64,
-    pub vup_ar_id: i64,
+    pub magic_face_id: i32,
+    pub vup_ar_id: i32,
     pub description: String,
-    pub redpack_price: i64,
+    pub redpack_price: i32,
     pub corner_marker_text: String,
 }
 
@@ -284,20 +284,20 @@ pub struct ExternalDisplayGift {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveList {
-    pub result: i64,
+    pub result: i32,
     pub request_id: String,
     pub live_list: Vec<UserLiveInfo>,
     pub count: i64,
     pub pcursor: String,
     #[serde(rename = "host-name")]
     pub host_name: String,
-    pub total_count: i64,
+    pub total_count: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserLiveInfo {
-    pub result: Option<i64>,
+    pub result: Option<i32>,
     #[serde(rename = "host-name")]
     pub host_name: Option<String>,
     pub visitor: Option<i64>,
@@ -312,7 +312,7 @@ pub struct UserLiveInfo {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveData {
-    pub action: i64,
+    pub action: i32,
     pub href: String,
     pub live_id: String,
     pub stream_name: String,
@@ -323,13 +323,13 @@ pub struct LiveData {
     pub live_type: LiveType,
     pub portrait: bool,
     pub panoramic: bool,
-    pub online_count: i64,
+    pub online_count: i32,
     pub format_online_count: String,
-    pub like_count: i64,
+    pub like_count: i32,
     pub format_like_count: String,
     pub has_fans_club: bool,
     pub biz_custom_data: String,
-    pub cdn_auth_biz: i64,
+    pub cdn_auth_biz: i32,
     pub disable_danmaku_show: bool,
     pub paid_show_user_buy_status: bool,
 }
@@ -337,31 +337,31 @@ pub struct LiveData {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserInfo {
-    pub action: i64,
+    pub action: i32,
     pub href: String,
     pub id: String,
     pub name: String,
-    pub name_color: i64,
+    pub name_color: i32,
     pub head_url: String,
     pub user_head_img_info: UserAvatar,
     pub head_cdn_urls: Vec<CdnUrl>,
     pub avatar_image: String,
-    pub avatar_frame: i64,
+    pub avatar_frame: i32,
     pub avatar_frame_mobile_img: String,
     pub avatar_frame_pc_img: String,
     pub is_followed: bool,
     pub is_following: bool,
-    pub following_status: i64,
+    pub following_status: i32,
     pub following_count: String,
-    pub following_count_value: i64,
+    pub following_count_value: i32,
     pub contribute_count: String,
-    pub contribute_count_value: i64,
+    pub contribute_count_value: i32,
     pub fan_count: String,
-    pub fan_count_value: i64,
-    pub gender: i64,
-    pub sex_trend: i64,
-    pub verified_type: Option<i64>,
-    pub verified_types: Option<Vec<i64>>,
+    pub fan_count_value: i32,
+    pub gender: i32,
+    pub sex_trend: i32,
+    pub verified_type: Option<i32>,
+    pub verified_types: Option<Vec<i32>>,
     pub verified_text: Option<String>,
     pub signature: Option<String>,
     pub is_join_up_college: Option<bool>,
@@ -372,10 +372,10 @@ pub struct UserInfo {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserAvatar {
-    pub width: i64,
-    pub height: i64,
-    pub size: i64,
-    pub r#type: i64,
+    pub width: i32,
+    pub height: i32,
+    pub size: i32,
+    pub r#type: i32,
     pub thumbnail_image: ThumbnailImage,
 }
 
@@ -395,16 +395,16 @@ pub struct CdnUrl {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveType {
-    pub id: i64,
+    pub id: i32,
     pub name: String,
-    pub category_id: i64,
+    pub category_id: i32,
     pub category_name: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MedalList {
-    pub result: i64,
+    pub result: i32,
     pub medal_list: Vec<Medal>,
     pub rank_index: Option<String>,
     pub live_gift_config: LiveGiftConfig,
@@ -413,48 +413,48 @@ pub struct MedalList {
     pub medal: Option<Medal>,
     #[serde(rename = "host-name")]
     pub host_name: String,
-    pub status: i64,
+    pub status: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Medal {
     pub uper_id: i64,
-    pub friendship_degree: i64,
+    pub friendship_degree: i32,
     pub join_club_time: i64,
     pub club_name: String,
     pub wear_medal: bool,
     pub uper_name: String,
     pub uper_head_url: String,
-    pub current_degree_limit: i64,
-    pub level: i64,
+    pub current_degree_limit: i32,
+    pub level: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveGiftConfig {
-    pub before_discount_gift_count: i64,
+    pub before_discount_gift_count: i32,
     pub live_gift_id: i64,
-    pub after_discount_gift_count: i64,
+    pub after_discount_gift_count: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MedalDegreeLimit {
     pub uper_id: i64,
-    pub gift_degree: i64,
-    pub gift_degree_limit: i64,
-    pub peach_degree: i64,
-    pub peach_degree_limit: i64,
-    pub live_watch_degree: i64,
-    pub live_watch_degree_limit: i64,
-    pub banana_degree: i64,
-    pub banana_degree_limit: i64,
+    pub gift_degree: i32,
+    pub gift_degree_limit: i32,
+    pub peach_degree: i32,
+    pub peach_degree_limit: i32,
+    pub live_watch_degree: i32,
+    pub live_watch_degree_limit: i32,
+    pub banana_degree: i32,
+    pub banana_degree_limit: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Summary {
-    pub result: i64,
+    pub result: i32,
     pub data: SummaryData,
     pub host: String,
 }
@@ -472,15 +472,15 @@ pub struct SummaryData {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct GiftValue {
     #[serde(rename = "1")]
-    pub paid_gift_value: i64,
+    pub paid_gift_value: i32,
     #[serde(rename = "2")]
-    pub banana_value: i64,
+    pub banana_value: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct GiftCount {
     #[serde(rename = "1")]
-    pub paid_gift_count: i64,
+    pub paid_gift_count: i32,
     #[serde(rename = "2")]
-    pub banana_count: i64,
+    pub banana_count: i32,
 }
