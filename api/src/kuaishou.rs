@@ -73,4 +73,8 @@ pub(crate) trait KuaishouZt {
     #[request(method = "POST", path = "/rest/zt/live/web/gift/list")]
     #[header(name = "Referer", value = "https://live.acfun.cn/")]
     async fn gift_list(&self, query: &KsQuery, form: &KsForm) -> Result<Json<GiftList>>;
+
+    #[request(method = "POST", path = "/rest/zt/live/web/endSummary")]
+    #[header(name = "Referer", value = "https://live.acfun.cn/")]
+    async fn end_summary(&self, query: &KsQuery, form: &KsForm) -> Result<Json<Summary>>;
 }

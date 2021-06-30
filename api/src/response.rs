@@ -94,7 +94,6 @@ pub struct UserToken {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct LiveInfo {
     pub result: i64,
     pub data: LiveInfoData,
@@ -230,7 +229,6 @@ pub struct LiveshowConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GiftList {
     pub result: i64,
     pub data: GiftData,
@@ -346,7 +344,7 @@ pub struct UserInfo {
     pub name_color: i64,
     pub head_url: String,
     pub user_head_img_info: UserAvatar,
-    pub head_cdn_urls: Vec<AvatarCdnUrl>,
+    pub head_cdn_urls: Vec<CdnUrl>,
     pub avatar_image: String,
     pub avatar_frame: i64,
     pub avatar_frame_mobile_img: String,
@@ -390,13 +388,6 @@ pub struct ThumbnailImage {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdnUrl {
-    pub url: String,
-    pub free_traffic_cdn: bool,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AvatarCdnUrl {
     pub url: String,
     pub free_traffic_cdn: bool,
 }
@@ -459,4 +450,37 @@ pub struct MedalDegreeLimit {
     pub live_watch_degree_limit: i64,
     pub banana_degree: i64,
     pub banana_degree_limit: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct Summary {
+    pub result: i64,
+    pub data: SummaryData,
+    pub host: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SummaryData {
+    pub live_duration_ms: i64,
+    pub like_count: String,
+    pub watch_count: String,
+    pub pay_wallet_type_to_receive_currency: Option<GiftValue>,
+    pub pay_wallet_type_to_receive_count: Option<GiftCount>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct GiftValue {
+    #[serde(rename = "1")]
+    pub paid_gift_value: i64,
+    #[serde(rename = "2")]
+    pub banana_value: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct GiftCount {
+    #[serde(rename = "1")]
+    pub paid_gift_count: i64,
+    #[serde(rename = "2")]
+    pub banana_count: i64,
 }

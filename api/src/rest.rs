@@ -60,3 +60,17 @@ impl Rest for UserLiveInfo {
         }
     }
 }
+
+#[async_trait]
+impl Rest for Summary {
+    #[inline]
+    async fn request<C>(client: &ApiClient<C>) -> Result<Self>
+    where
+        C: pretend::client::Client + Send + Sync,
+    {
+        match client.live_id() {
+            Some(live_id) => client.get_summary(live_id).await,
+            None => Err(Error::NotSetLiverUid),
+        }
+    }
+}

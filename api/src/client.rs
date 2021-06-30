@@ -432,6 +432,22 @@ where
             Ok(self.acfun_api().live_info(liver_uid).await?.value())
         }
     }
+
+    #[inline]
+    pub async fn get_summary(&self, live_id: impl Into<Cow<'_, str>>) -> Result<Summary> {
+        let live_id = live_id.into();
+        if live_id.is_empty() {
+            Err(Error::EmptyLiveId)
+        } else if !self.is_login() {
+            Err(Error::VisitorOrUserNotLogin)
+        } else {
+            Ok(self
+                .kuaishou_zt()
+                .end_summary(&self.ks_query(), &self.ks_form(live_id.as_ref()))
+                .await?
+                .value())
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -568,6 +584,7 @@ mod tests {
         let _live_list: LiveList = client.get().await?;
         let _info = client.get_user_live_info(1).await?;
         let _info: UserLiveInfo = client.get().await?;
+        let _summary: Summary = client.get().await?;
 
         Ok(())
     }
@@ -594,6 +611,7 @@ mod tests {
         let _medal_list: MedalList = client.get().await?;
         let _info = client.get_user_live_info(1).await?;
         let _info: UserLiveInfo = client.get().await?;
+        let _summary: Summary = client.get().await?;
 
         Ok(())
     }
