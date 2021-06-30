@@ -3,7 +3,7 @@ use aes::Aes128;
 use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
 use prost::Message;
 use rand::{distributions::Standard, Rng};
-use std::convert::TryInto;
+use std::{convert::TryInto, time::SystemTime};
 
 pub mod acproto {
     include!(concat!(env!("OUT_DIR"), "/acproto.rs"));
@@ -311,7 +311,9 @@ impl Generate for acproto::ZtLiveScMessage {
 impl Generate for acproto::ZtLiveCsHeartbeat {
     fn generate(data: &mut ProtoData) -> Result<Vec<u8>> {
         let heartbeat = Self {
-            client_timestamp_ms: chrono::Utc::now().timestamp_millis(),
+            client_timestamp_ms: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_millis() as i64,
             sequence: data.heartbeat_seq_id,
         };
         let mut buf = Vec::new();

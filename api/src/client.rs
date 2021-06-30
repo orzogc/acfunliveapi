@@ -532,7 +532,7 @@ where
             }
         }
         if let Some(liver_uid) = self.liver_uid {
-            let mut info = client.get_live_info(liver_uid).await?;
+            let info = client.get_live_info(liver_uid).await?;
             client.live = Some(Live {
                 liver_uid,
                 live_id: info.data.live_id,
@@ -546,16 +546,17 @@ where
                     .data
                     .video_play_res
                     .live_adaptive_manifest
-                    .get_mut(0)
+                    .into_iter()
+                    .next()
                     .ok_or(Error::IndexOutOfRange("live_adaptive_manifest", 0))?
                     .adaptation_set
                     .representation
-                    .iter_mut()
+                    .into_iter()
                     .map(|r| Stream {
-                        url: std::mem::take(&mut r.url),
+                        url: r.url,
                         bitrate: r.bitrate,
-                        quality_type: std::mem::take(&mut r.quality_type),
-                        quality_name: std::mem::take(&mut r.name),
+                        quality_type: r.quality_type,
+                        quality_name: r.name,
                     })
                     .collect(),
             });

@@ -46,6 +46,8 @@ pub enum Error {
     SenderCancelError(#[from] futures::channel::oneshot::Canceled),
     #[error("invalid danmaku token")]
     InvalidToken,
+    #[error(transparent)]
+    SystemTimeError(#[from] std::time::SystemTimeError),
 
     #[cfg(feature = "api")]
     #[error(transparent)]
