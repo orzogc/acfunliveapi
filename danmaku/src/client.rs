@@ -8,7 +8,7 @@ use futures::{
     {sink::SinkExt, stream::StreamExt},
 };
 use prost::Message;
-use std::time::Duration;
+use std::{convert::TryFrom, time::Duration};
 
 #[cfg(feature = "api")]
 use acfunliveapi::{
@@ -419,7 +419,7 @@ async fn handle(
                 ENTER_ROOM_ACK => {
                     let enter_room = acproto::ZtLiveCsEnterRoomAck::decode(cmd.payload.as_slice())?;
                     let interval = if enter_room.heartbeat_interval_ms > 0 {
-                        enter_room.heartbeat_interval_ms as u64
+                        u64::try_from(enter_room.heartbeat_interval_ms)?
                     } else {
                         10000
                     };

@@ -3,7 +3,10 @@ use aes::Aes128;
 use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
 use prost::Message;
 use rand::{distributions::Standard, Rng};
-use std::{convert::TryInto, time::SystemTime};
+use std::{
+    convert::{TryFrom, TryInto},
+    time::SystemTime,
+};
 
 pub mod acproto {
     include!(concat!(env!("OUT_DIR"), "/acproto.rs"));
@@ -102,7 +105,7 @@ impl ProtoData {
 
     // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
     fn encode(&self, header: &mut acproto::PacketHeader, payload: &[u8]) -> Result<Vec<u8>> {
-        header.decoded_payload_len = payload.len() as u32;
+        header.decoded_payload_len = u32::try_from(payload.len())?;
         let mut header_buf = Vec::new();
         header.encode(&mut header_buf)?;
 
@@ -118,8 +121,8 @@ impl ProtoData {
         let mut encrypted = encrypt(payload, key)?;
 
         let mut data = 0xABCD0001u32.to_be_bytes().to_vec();
-        data.extend_from_slice(&(header_buf.len() as u32).to_be_bytes());
-        data.extend_from_slice(&(encrypted.len() as u32).to_be_bytes());
+        data.extend_from_slice(&(u32::try_from(header_buf.len())?).to_be_bytes());
+        data.extend_from_slice(&(u32::try_from(encrypted.len())?).to_be_bytes());
         data.append(&mut header_buf);
         data.append(&mut encrypted);
 
@@ -128,16 +131,16 @@ impl ProtoData {
 
     // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
     pub(crate) fn decode(&mut self, data: &[u8]) -> Result<acproto::DownstreamPayload> {
-        let header_length = u32::from_be_bytes(
+        let header_length = usize::try_from(u32::from_be_bytes(
             data.get(4..8)
                 .ok_or_else(|| Error::ProtoDataLengthError("header length", 4, data.len() - 4))?
                 .try_into()?,
-        ) as usize;
-        let body_length = u32::from_be_bytes(
+        ))?;
+        let body_length = usize::try_from(u32::from_be_bytes(
             data.get(8..12)
                 .ok_or_else(|| Error::ProtoDataLengthError("body length", 4, data.len() - 8))?
                 .try_into()?,
-        ) as usize;
+        ))?;
         let header =
             acproto::PacketHeader::decode(data.get(12..(12 + header_length)).ok_or_else(
                 || Error::ProtoDataLengthError("header", header_length, data.len() - 12),
@@ -170,10 +173,10 @@ impl ProtoData {
                 decrypted.as_slice()
             }
         };
-        if payload.len() != header.decoded_payload_len as usize {
+        if payload.len() != usize::try_from(header.decoded_payload_len)? {
             return Err(Error::ProtoDataLengthError(
                 "payload length",
-                header.decoded_payload_len as usize,
+                usize::try_from(header.decoded_payload_len)?,
                 payload.len(),
             ));
         }
@@ -311,9 +314,11 @@ impl Generate for acproto::ZtLiveScMessage {
 impl Generate for acproto::ZtLiveCsHeartbeat {
     fn generate(data: &mut ProtoData) -> Result<Vec<u8>> {
         let heartbeat = Self {
-            client_timestamp_ms: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)?
-                .as_millis() as i64,
+            client_timestamp_ms: i64::try_from(
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
+                    .as_millis(),
+            )?,
             sequence: data.heartbeat_seq_id,
         };
         let mut buf = Vec::new();

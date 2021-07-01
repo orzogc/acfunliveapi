@@ -48,6 +48,8 @@ pub enum Error {
     InvalidToken,
     #[error(transparent)]
     SystemTimeError(#[from] std::time::SystemTimeError),
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 
     #[cfg(feature = "api")]
     #[error(transparent)]
