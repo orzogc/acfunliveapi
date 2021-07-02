@@ -35,7 +35,7 @@ pub enum Error {
 }
 
 impl From<pretend::Error> for Error {
-    fn from(e: pretend::Error) -> Self {
-        Self::PretendError(e.to_string())
+    fn from(err: pretend::Error) -> Self {
+        Self::PretendError(format!("pretend error: {:?}", err))
     }
 }

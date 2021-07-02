@@ -6,14 +6,20 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("the WebSocket client failed to connect the server")]
     WsConnectError(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("the WebSocket client failed to read the message from the server")]
+    #[error("the WebSocket client failed to read a message from the server")]
     WsReadError(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("the WebSocket client failed to send the message to the server")]
+    #[error("the WebSocket client failed to send a message to the server")]
     WsWriteError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket client failed to close the connection")]
     WsCloseError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket connection was closed")]
     WsClosed,
+    #[error("it was timeout for the WebSocket client to read a message")]
+    WsReadTimeout,
+    #[error("it was timeout for the WebSocket client to send a message")]
+    WsWriteTimeout,
+    #[error("it was timeout for the WebSocket client to close the connection")]
+    WsCloseTimeout,
     #[error(transparent)]
     InvalidKeyIvLength(#[from] block_modes::InvalidKeyIvLength),
     #[error(transparent)]

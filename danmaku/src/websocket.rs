@@ -10,7 +10,9 @@ use futures::{
     stream::{SplitSink, SplitStream, StreamExt},
 };
 #[cfg(feature = "default_ws_client")]
-use tokio::net::TcpStream;
+use std::time::Duration;
+#[cfg(feature = "default_ws_client")]
+use tokio::{net::TcpStream, select, time::sleep};
 #[cfg(feature = "default_ws_client")]
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
@@ -48,21 +50,31 @@ impl WebSocketWrite for WsWrite {
     where
         T: Into<Vec<u8>> + Send,
     {
-        self.0
-            .send(Message::binary(message))
-            .await
-            .map_err(|e| Error::WsWriteError(Box::new(e)))
+        select! {
+            result = self.0.send(Message::binary(message)) => {
+                result.map_err(|e| Error::WsWriteError(Box::new(e)))
+            }
+            _ = sleep(Duration::from_secs(10)) => Err(Error::WsWriteTimeout)
+        }
     }
 
     async fn close(&mut self) -> Result<()> {
-        self.0
-            .send(Message::Close(None))
-            .await
-            .map_err(|e| Error::WsCloseError(Box::new(e)))?;
-        self.0
-            .close()
-            .await
-            .map_err(|e| Error::WsCloseError(Box::new(e)))
+        let cls = async {
+            self.0
+                .send(Message::Close(None))
+                .await
+                .map_err(|e| Error::WsCloseError(Box::new(e)))?;
+            self.0
+                .close()
+                .await
+                .map_err(|e| Error::WsCloseError(Box::new(e)))
+        };
+        select! {
+            result = cls => {
+                result
+            }
+            _ = sleep(Duration::from_secs(10)) => Err(Error::WsCloseTimeout)
+        }
     }
 }
 
@@ -73,13 +85,12 @@ pub struct WsRead(SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>);
 #[async_trait]
 impl WebSocketRead for WsRead {
     async fn read(&mut self) -> Result<Vec<u8>> {
-        Ok(self
-            .0
-            .next()
-            .await
-            .ok_or(Error::WsClosed)?
-            .map_err(|e| Error::WsReadError(Box::new(e)))?
-            .into_data())
+        select! {
+            result = self.0.next() => {
+                Ok(result.ok_or(Error::WsClosed)?.map_err(|e| Error::WsReadError(Box::new(e)))?.into_data())
+            }
+            _ = sleep(Duration::from_secs(10)) => Err(Error::WsReadTimeout)
+        }
     }
 }
 
