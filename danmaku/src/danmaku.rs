@@ -20,6 +20,14 @@ struct MedalInfo_ {
 }
 
 #[cfg(feature = "_serde")]
+impl MedalInfo {
+    #[inline]
+    pub fn new<'a>(badge: impl Into<std::borrow::Cow<'a, str>>) -> Result<Self> {
+        badge.into().parse()
+    }
+}
+
+#[cfg(feature = "_serde")]
 impl std::str::FromStr for MedalInfo {
     type Err = Error;
 
