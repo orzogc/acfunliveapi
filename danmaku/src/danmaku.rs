@@ -3,6 +3,33 @@ use futures::channel::mpsc;
 use prost::Message;
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
+#[cfg_attr(feature = "_serde", serde(rename_all = "camelCase"))]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+pub struct MedalInfo {
+    pub uper_id: i64,
+    pub user_id: i64,
+    pub club_name: String,
+    pub level: i32,
+}
+
+#[cfg(feature = "_serde")]
+#[derive(Clone, Debug, Default, ::serde::Deserialize, Eq, Hash, PartialEq, ::serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MedalInfo_ {
+    medal_info: MedalInfo,
+}
+
+#[cfg(feature = "_serde")]
+impl std::str::FromStr for MedalInfo {
+    type Err = Error;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(serde_json::from_str::<MedalInfo_>(s)?.medal_info)
+    }
+}
+
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ActionSignal {
     Comment(acproto::CommonActionSignalComment),

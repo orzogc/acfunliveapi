@@ -60,4 +60,8 @@ pub enum Error {
     #[cfg(feature = "api")]
     #[error(transparent)]
     AcFunLiveApiError(#[from] acfunliveapi::Error),
+
+    #[cfg(feature = "_serde")]
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
 }

@@ -15,7 +15,7 @@ build = "build.rs"
 default = ["api", "default_ws_client", "_serde"]
 api = ["acfunliveapi"]
 default_ws_client = ["tokio", "tokio-tungstenite"]
-_serde = ["serde", "serde_bytes"]
+_serde = ["serde", "serde_bytes", "serde_json"]
 
 [dependencies]
 acfunliveapi = { version = "0.1.0", path = "../api", optional = true }
@@ -30,10 +30,11 @@ prost = "0.7.0"
 rand = "0.8.4"
 serde = { version = "1.0.126", features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.5", optional = true }
-thiserror = "1.0.25"
-tokio = { version = "1.7.1", features = ["macros", "net", "time"], optional = true }
+serde_json = { version = "1.0.64", optional = true }
+thiserror = "1.0.26"
+tokio = { version = "1.8.0", features = ["macros", "net", "time"], optional = true }
 tokio-tungstenite = { version = "0.14.0", features = ["rustls-tls"], optional = true }
 
 [build-dependencies]
 prost-build = "0.7.0"
-tokio = { version = "1.7.1", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1.8.0", features = ["rt-multi-thread", "macros", "time"] }
