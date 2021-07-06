@@ -20,7 +20,7 @@ use std::borrow::Cow;
 
 const CHANNEL_SIZE: usize = 100;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug)]
 enum Command {
     Decode(Vec<u8>),
     StartHeartbeat(u64),

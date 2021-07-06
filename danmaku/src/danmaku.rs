@@ -13,7 +13,7 @@ pub struct MedalInfo {
 }
 
 #[cfg(feature = "_serde")]
-#[derive(Clone, Debug, Default, ::serde::Deserialize, Eq, Hash, PartialEq, ::serde::Serialize)]
+#[derive(Clone, Debug, ::serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MedalInfo_ {
     medal_info: MedalInfo,

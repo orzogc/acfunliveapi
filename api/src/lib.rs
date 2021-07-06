@@ -12,3 +12,6 @@ pub use errors::*;
 pub use rest::*;
 
 pub use pretend;
+
+#[cfg(feature = "default_http_client")]
+pub use pretend_reqwest;

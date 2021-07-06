@@ -406,30 +406,25 @@ pub struct LiveType {
 pub struct MedalList {
     pub result: i32,
     pub medal_list: Vec<Medal>,
-    pub rank_index: Option<String>,
-    pub live_gift_config: LiveGiftConfig,
-    pub medal_degree_limit: MedalDegreeLimit,
-    pub club_name: Option<String>,
-    pub medal: Option<Medal>,
     #[serde(rename = "host-name")]
     pub host_name: String,
-    pub status: i32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Medal {
     pub uper_id: i64,
-    pub friendship_degree: i32,
-    pub join_club_time: i64,
-    pub club_name: String,
-    pub wear_medal: bool,
     pub uper_name: String,
     pub uper_head_url: String,
-    pub current_degree_limit: i32,
+    pub club_name: String,
     pub level: i32,
+    pub join_club_time: i64,
+    pub wear_medal: bool,
+    pub friendship_degree: i32,
+    pub current_degree_limit: i32,
 }
 
+/*
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveGiftConfig {
@@ -451,6 +446,7 @@ pub struct MedalDegreeLimit {
     pub banana_degree: i32,
     pub banana_degree_limit: i32,
 }
+*/
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Summary {

@@ -35,7 +35,7 @@ fn decrypt(cipher_text: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     Ok(cipher.decrypt_vec(cipher_text)?)
 }
 
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct ProtoData {
     user_id: i64,
     security_key: String,

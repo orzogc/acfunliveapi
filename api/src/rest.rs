@@ -40,10 +40,7 @@ impl Rest for MedalList {
     where
         C: pretend::client::Client + Send + Sync,
     {
-        match client.liver_uid() {
-            Some(liver_uid) => client.get_medal_list(liver_uid).await,
-            None => Err(Error::NotSetLiverUid),
-        }
+        client.get_medal_list().await
     }
 }
 

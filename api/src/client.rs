@@ -12,9 +12,8 @@ use std::time::Duration;
 
 const ACFUN_ID: &str = "https://id.app.acfun.cn/";
 const ACFUN_LIVE: &str = "https://live.acfun.cn/";
-const ACFUN_API: &str = "https://api-new.app.acfun.cn/";
-//const ACFUN_MEMBER: &str = "https://member.acfun.cn/";
 const KUAISHOU_ZT: &str = "https://api.kuaishouzt.com/";
+//const ACFUN_MEMBER: &str = "https://member.acfun.cn/";
 
 pub type Cookies = String;
 
@@ -42,9 +41,8 @@ pub enum AcFunToken {
 struct Clients<C> {
     acfun_id: Pretend<C, UrlResolver>,
     acfun_live: Pretend<C, UrlResolver>,
-    acfun_api: Pretend<C, UrlResolver>,
-    //acfun_member: Pretend<C, UrlResolver>,
     kuaishou_zt: Pretend<C, UrlResolver>,
+    //acfun_member: Pretend<C, UrlResolver>,
 }
 
 impl<C: Clone> Clients<C> {
@@ -53,9 +51,8 @@ impl<C: Clone> Clients<C> {
         Ok(Self {
             acfun_id: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_ID)?),
             acfun_live: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_LIVE)?),
-            acfun_api: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_API)?),
-            //acfun_member: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_MEMBER)?),
             kuaishou_zt: Pretend::for_client(client).with_url(Url::parse(KUAISHOU_ZT)?),
+            //acfun_member: Pretend::for_client(client.clone()).with_url(Url::parse(ACFUN_MEMBER)?),
         })
     }
 }
@@ -202,11 +199,6 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn acfun_api(&self) -> &Pretend<C, UrlResolver> {
-        &self.clients.acfun_api
-    }
-
-    #[inline]
     pub fn kuaishou_zt(&self) -> &Pretend<C, UrlResolver> {
         &self.clients.kuaishou_zt
     }
@@ -334,7 +326,7 @@ where
                 let token: UserToken = self
                     .acfun_id()
                     .user_token(
-                        &TokenForm {
+                        TokenForm {
                             sid: Sid::Midground,
                         },
                         c.as_str(),
@@ -347,7 +339,7 @@ where
             None => {
                 let token: VisitorToken = self
                     .acfun_id()
-                    .visitor_token(&TokenForm { sid: Sid::Visitor }, device_id)
+                    .visitor_token(TokenForm { sid: Sid::Visitor }, device_id)
                     .await?
                     .value();
 
@@ -398,9 +390,9 @@ where
     #[inline]
     pub async fn get_live_list(&self, count: u32, page: u32) -> Result<LiveList> {
         Ok(self
-            .acfun_api()
+            .acfun_live()
             .live_list(
-                &LiveListForm {
+                LiveListForm {
                     count,
                     pcursor: page,
                 },
@@ -411,15 +403,13 @@ where
     }
 
     #[inline]
-    pub async fn get_medal_list(&self, liver_uid: i64) -> Result<MedalList> {
-        if liver_uid < 0 {
-            Err(Error::InvalidUid(liver_uid))
-        } else if !self.is_user() {
+    pub async fn get_medal_list(&self) -> Result<MedalList> {
+        if !self.is_user() {
             Err(Error::NotUser)
         } else {
             Ok(self
-                .acfun_api()
-                .medal_list(liver_uid, self.token.cookies.as_deref().unwrap_or_default())
+                .acfun_live()
+                .medal_list(self.token.cookies.as_deref().unwrap_or_default())
                 .await?
                 .value())
         }
@@ -430,7 +420,13 @@ where
         if liver_uid <= 0 {
             Err(Error::InvalidUid(liver_uid))
         } else {
-            Ok(self.acfun_api().live_info(liver_uid).await?.value())
+            Ok(self
+                .acfun_live()
+                .live_info(LiveInfoForm {
+                    author_id: liver_uid,
+                })
+                .await?
+                .value())
         }
     }
 
@@ -609,7 +605,6 @@ mod tests {
             .await?;
         let _gifts: GiftList = client.get().await?;
         let _live_list: LiveList = client.get().await?;
-        let _medal_list = client.get_medal_list(0).await?;
         let _medal_list: MedalList = client.get().await?;
         let _info = client.get_user_live_info(1).await?;
         let _info: UserLiveInfo = client.get().await?;

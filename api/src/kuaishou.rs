@@ -3,7 +3,7 @@ use pretend::{header, pretend, request, Json, Result};
 use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub(crate) struct KsQuery<'a>(HashMap<&'a str, &'a str>);
 
 impl<'a> KsQuery<'a> {
@@ -36,7 +36,7 @@ impl<'a> KsQuery<'a> {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct KsForm<'a> {
     visitor_id: i64,
@@ -53,7 +53,7 @@ impl<'a> KsForm<'a> {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct StartPlayForm<'a> {
     author_id: i64,
