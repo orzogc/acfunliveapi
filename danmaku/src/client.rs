@@ -3,8 +3,9 @@ use async_compression::futures::bufread::GzipDecoder;
 use async_timer::Interval;
 use futures::{
     channel::{mpsc, oneshot},
+    future::FutureExt,
     io::AsyncReadExt,
-    try_join,
+    select,
     {sink::SinkExt, stream::StreamExt},
 };
 use prost::Message;
@@ -284,7 +285,7 @@ impl<C: WebSocket> DanmakuClient<C> {
             .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
             .await?;
 
-        let (mut ws_tx, mut ws_rx) = mpsc::channel::<Command>(CHANNEL_SIZE);
+        let (mut ws_tx, mut ws_rx) = mpsc::unbounded::<Command>();
         let mut read_ws_tx = ws_tx.clone();
         let mut hb_ws_tx = ws_tx.clone();
         let (hb_tx, hb_rx) = oneshot::channel::<Interval>();
@@ -347,15 +348,21 @@ impl<C: WebSocket> DanmakuClient<C> {
                 }
             }
 
-            Result::<()>::Err(Error::StopDanmaku("stop writing"))
+            Result::Ok(())
         };
         let read = async {
-            while let Ok(msg) = ws_read.read().await {
-                read_ws_tx.send(Command::Decode(msg)).await?;
+            loop {
+                match ws_read.read().await {
+                    Ok(msg) => read_ws_tx.send(Command::Decode(msg)).await?,
+                    Err(e) => {
+                        log::trace!("reading WebSocket message error: {:?}", e);
+                        break;
+                    }
+                }
             }
             read_ws_tx.send(Command::Close).await?;
 
-            Result::<()>::Err(Error::StopDanmaku("stop reading"))
+            Result::Ok(())
         };
         let heartbeat = async {
             let mut timer = hb_rx.await?;
@@ -372,9 +379,25 @@ impl<C: WebSocket> DanmakuClient<C> {
             }
 
             #[allow(unreachable_code)]
-            Result::<()>::Err(Error::StopDanmaku("stop heartbeat"))
+            Result::Ok(())
         };
-        let _ = try_join!(write, read, heartbeat);
+        select! {
+            result = write.fuse() => {
+                if let Err(e) = result {
+                    log::trace!("writing WebSocket message error: {:?}", e);
+                }
+            },
+            result = read.fuse() => {
+                if let Err(e) = result {
+                    log::trace!("reading WebSocket message error: {:?}", e);
+                }
+            },
+            result = heartbeat.fuse() => {
+                if let Err(e) = result {
+                    log::trace!("heartbeat error: {:?}", e);
+                }
+            },
+        }
         let _ = ws_write.close().await;
 
         Ok(())
@@ -407,7 +430,7 @@ impl<C> From<&ApiClient<C>> for DanmakuClient<WsClient> {
 
 async fn handle(
     stream: &acproto::DownstreamPayload,
-    ws_tx: &mut mpsc::Sender<Command>,
+    ws_tx: &mut mpsc::UnboundedSender<Command>,
     action_tx: &mut Option<mpsc::Sender<Vec<ActionSignal>>>,
     state_tx: &mut Option<mpsc::Sender<Vec<StateSignal>>>,
     notify_tx: &mut Option<mpsc::Sender<Vec<NotifySignal>>>,
@@ -473,6 +496,7 @@ async fn handle(
                     }
                 }
                 TICKET_INVALID => {
+                    log::trace!("danmaku ticket invalid");
                     ws_tx.send(Command::TicketInvalid).await?;
                 }
                 _ => {}

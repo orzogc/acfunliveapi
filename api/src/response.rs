@@ -284,6 +284,17 @@ pub struct ExternalDisplayGift {
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveList {
+    pub channel_list_data: ChannelListData,
+    pub total_count: i32,
+    //pub channel_data: ChannelData,
+    pub live_list: Vec<UserLiveInfo>,
+    //pub recommend_authors_data: Vec<::serde_json::Value>,
+    pub channel_filters: ChannelFilters,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelListData {
     pub result: i32,
     pub request_id: String,
     pub live_list: Vec<UserLiveInfo>,
@@ -349,8 +360,8 @@ pub struct UserInfo {
     pub avatar_frame: i32,
     pub avatar_frame_mobile_img: String,
     pub avatar_frame_pc_img: String,
-    pub is_followed: bool,
     pub is_following: bool,
+    pub is_followed: bool,
     pub following_status: i32,
     pub following_count: String,
     pub following_count_value: i32,
@@ -399,6 +410,27 @@ pub struct LiveType {
     pub name: String,
     pub category_id: i32,
     pub category_name: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelFilters {
+    pub live_channel_display_filters: Vec<LiveChannelDisplayFilter>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveChannelDisplayFilter {
+    pub display_filters: Vec<DisplayFilter>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayFilter {
+    pub filter_type: i32,
+    pub filter_id: i32,
+    pub name: String,
+    pub cover: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]

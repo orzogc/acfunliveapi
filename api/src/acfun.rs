@@ -36,14 +36,14 @@ pub(crate) struct TokenForm {
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
-pub(crate) struct LiveListForm {
+pub(crate) struct LiveListQuery {
     pub(crate) count: u32,
     pub(crate) pcursor: u32,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct LiveInfoForm {
+pub(crate) struct LiveInfoQuery {
     pub(crate) author_id: i64,
 }
 
@@ -66,14 +66,15 @@ pub(crate) trait AcFunLive {
     #[request(method = "GET", path = "/")]
     async fn device_id(&self) -> Result<Response<()>>;
 
-    #[request(method = "POST", path = "/rest/pc-direct/live/channel")]
+    #[request(method = "GET", path = "/api/channel/list")]
     #[header(name = "Cookie", value = "{cookie}")]
-    async fn live_list(&self, form: LiveListForm, cookie: &str) -> Result<Json<LiveList>>;
+    async fn live_list(&self, query: LiveListQuery, cookie: &str) -> Result<Json<LiveList>>;
 
     #[request(method = "GET", path = "/rest/pc-direct/fansClub/fans/medal/list")]
     #[header(name = "Cookie", value = "{cookie}")]
     async fn medal_list(&self, cookie: &str) -> Result<Json<MedalList>>;
 
-    #[request(method = "POST", path = "/rest/pc-direct/live/info")]
-    async fn live_info(&self, form: LiveInfoForm) -> Result<Json<UserLiveInfo>>;
+    #[request(method = "GET", path = "/api/live/info")]
+    #[header(name = "Cookie", value = "{cookie}")]
+    async fn live_info(&self, query: LiveInfoQuery, cookie: &str) -> Result<Json<UserLiveInfo>>;
 }

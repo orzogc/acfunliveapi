@@ -392,7 +392,7 @@ where
         Ok(self
             .acfun_live()
             .live_list(
-                LiveListForm {
+                LiveListQuery {
                     count,
                     pcursor: page,
                 },
@@ -422,9 +422,12 @@ where
         } else {
             Ok(self
                 .acfun_live()
-                .live_info(LiveInfoForm {
-                    author_id: liver_uid,
-                })
+                .live_info(
+                    LiveInfoQuery {
+                        author_id: liver_uid,
+                    },
+                    self.token.cookies.as_deref().unwrap_or_default(),
+                )
                 .await?
                 .value())
         }
