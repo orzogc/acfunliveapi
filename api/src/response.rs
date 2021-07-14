@@ -512,3 +512,27 @@ pub struct GiftCount {
     #[serde(rename = "2")]
     pub banana_count: i32,
 }
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MedalRankList {
+    pub result: i32,
+    pub cur_user_rank_index: Option<String>,
+    pub friendship_degree_rank: Vec<MedalRank>,
+    pub has_fans_club: bool,
+    pub fans_total_count: i32,
+    pub club_name: String,
+    pub cur_user_friendship_degree: Option<i32>,
+    #[serde(rename = "host-name")]
+    pub host_name: String,
+    pub is_in_fans_club: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MedalRank {
+    pub friendship_degree: i32,
+    pub user_id: i64,
+    pub medal_level: i32,
+    pub user_info: UserInfo,
+}

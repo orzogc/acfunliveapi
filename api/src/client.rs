@@ -392,10 +392,8 @@ where
         Ok(self
             .acfun_live()
             .live_list(
-                LiveListQuery {
-                    count,
-                    pcursor: page,
-                },
+                count,
+                page,
                 self.token.cookies.as_deref().unwrap_or_default(),
             )
             .await?
@@ -422,12 +420,7 @@ where
         } else {
             Ok(self
                 .acfun_live()
-                .live_info(
-                    LiveInfoQuery {
-                        author_id: liver_uid,
-                    },
-                    self.token.cookies.as_deref().unwrap_or_default(),
-                )
+                .live_info(liver_uid, self.token.cookies.as_deref().unwrap_or_default())
                 .await?
                 .value())
         }
@@ -444,6 +437,19 @@ where
             Ok(self
                 .kuaishou_zt()
                 .end_summary(&self.ks_query(), &self.ks_form(live_id.as_ref()))
+                .await?
+                .value())
+        }
+    }
+
+    #[inline]
+    pub async fn get_medal_rank_list(&self, liver_uid: i64) -> Result<MedalRankList> {
+        if liver_uid <= 0 {
+            Err(Error::InvalidUid(liver_uid))
+        } else {
+            Ok(self
+                .acfun_live()
+                .medal_rank_list(liver_uid, self.token.cookies.as_deref().unwrap_or_default())
                 .await?
                 .value())
         }
@@ -586,6 +592,7 @@ mod tests {
         let _info = client.get_user_live_info(1).await?;
         let _info: UserLiveInfo = client.get().await?;
         let _summary: Summary = client.get().await?;
+        let _medal_rank_list: MedalRankList = client.get().await?;
 
         Ok(())
     }
@@ -612,6 +619,7 @@ mod tests {
         let _info = client.get_user_live_info(1).await?;
         let _info: UserLiveInfo = client.get().await?;
         let _summary: Summary = client.get().await?;
+        let _medal_rank_list: MedalRankList = client.get().await?;
 
         Ok(())
     }

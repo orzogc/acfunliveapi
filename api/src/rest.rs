@@ -71,3 +71,17 @@ impl Rest for Summary {
         }
     }
 }
+
+#[async_trait]
+impl Rest for MedalRankList {
+    #[inline]
+    async fn request<C>(client: &ApiClient<C>) -> Result<Self>
+    where
+        C: pretend::client::Client + Send + Sync,
+    {
+        match client.liver_uid() {
+            Some(liver_uid) => client.get_medal_rank_list(liver_uid).await,
+            None => Err(Error::NotSetLiverUid),
+        }
+    }
+}
