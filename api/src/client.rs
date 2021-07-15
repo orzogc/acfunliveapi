@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 #[cfg(feature = "default_http_client")]
-use pretend_reqwest::Client as PRClient;
-#[cfg(feature = "default_http_client")]
-use std::time::Duration;
+use crate::http::HttpClient;
 
 const ACFUN_ID: &str = "https://id.app.acfun.cn/";
 const ACFUN_LIVE: &str = "https://live.acfun.cn/";
@@ -16,20 +14,6 @@ const KUAISHOU_ZT: &str = "https://api.kuaishouzt.com/";
 //const ACFUN_MEMBER: &str = "https://member.acfun.cn/";
 
 pub type Cookies = String;
-
-#[cfg(feature = "default_http_client")]
-#[inline]
-fn default_reqwest_client() -> Result<reqwest::Client> {
-    Ok(reqwest::Client::builder()
-        .gzip(true)
-        .timeout(Duration::from_secs(10))
-        .pool_idle_timeout(Duration::from_secs(90))
-        .tcp_keepalive(Duration::from_secs(120))
-        .use_rustls_tls()
-        .no_trust_dns()
-        .https_only(true)
-        .build()?)
-}
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AcFunToken {
@@ -58,10 +42,10 @@ impl<C: Clone> Clients<C> {
 }
 
 #[cfg(feature = "default_http_client")]
-impl Clients<PRClient> {
+impl Clients<HttpClient> {
     #[inline]
     fn default_clients() -> Result<Self> {
-        Self::new(PRClient::new(default_reqwest_client()?))
+        Self::new(HttpClient::default_client()?)
     }
 }
 
@@ -124,7 +108,7 @@ pub struct ApiClient<C> {
 }
 
 #[cfg(feature = "default_http_client")]
-impl ApiClient<PRClient> {
+impl ApiClient<HttpClient> {
     #[inline]
     fn default_client() -> Result<Self> {
         Ok(Self {
@@ -465,7 +449,7 @@ pub struct ApiClientBuilder<C> {
 }
 
 #[cfg(feature = "default_http_client")]
-impl ApiClientBuilder<PRClient> {
+impl ApiClientBuilder<HttpClient> {
     #[inline]
     pub fn default_client() -> Result<Self> {
         Ok(Self {

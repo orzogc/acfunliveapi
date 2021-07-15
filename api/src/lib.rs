@@ -3,6 +3,9 @@
 pub mod client;
 pub mod response;
 
+#[cfg(feature = "default_http_client")]
+pub mod http;
+
 mod acfun;
 mod errors;
 mod kuaishou;
@@ -12,6 +15,3 @@ pub use errors::*;
 pub use rest::*;
 
 pub use pretend;
-
-#[cfg(feature = "default_http_client")]
-pub use pretend_reqwest;

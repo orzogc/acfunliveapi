@@ -328,10 +328,10 @@ pub struct LiveData {
     pub live_id: String,
     pub stream_name: String,
     pub create_time: i64,
-    pub title: String,
-    pub cover_urls: Vec<String>,
+    pub title: Option<String>,
+    pub cover_urls: Option<Vec<String>>,
     #[serde(rename = "type")]
-    pub live_type: LiveType,
+    pub live_type: Option<LiveType>,
     pub portrait: bool,
     pub panoramic: bool,
     pub online_count: i32,

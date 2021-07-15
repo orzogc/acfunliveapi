@@ -12,13 +12,12 @@ keywords = ["acfun", "live"]
 
 [features]
 default = ["default_http_client"]
-default_http_client = ["pretend-reqwest", "reqwest"]
+default_http_client = ["reqwest"]
 
 [dependencies]
 async-trait = "0.1.50"
-cookie = "0.15.0"
+cookie = "0.15.1"
 pretend = "0.2.1"
-pretend-reqwest = { version = "0.2.1", optional = true }
 reqwest = { version = "0.11.4", default-features = false, features = ["rustls-tls", "gzip"], optional = true }
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"

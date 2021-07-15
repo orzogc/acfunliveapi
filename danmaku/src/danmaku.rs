@@ -103,8 +103,10 @@ pub enum NotifySignal {
 #[inline]
 fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
     if err.is_full() {
+        log::trace!("the channel is full");
         Ok(())
     } else {
+        log::trace!("failed to send message to the channel");
         Err(Error::SendDanmakuError)
     }
 }
