@@ -16,6 +16,8 @@ use tokio::{net::TcpStream, select, time::sleep};
 #[cfg(feature = "default_ws_client")]
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
+const WS_TIMEOUT: u64 = 10;
+
 #[async_trait]
 pub trait WebSocketWrite {
     async fn write<T>(&mut self, message: T) -> Result<()>
@@ -54,7 +56,7 @@ impl WebSocketWrite for WsWrite {
             result = self.0.send(Message::binary(message)) => {
                 result.map_err(|e| Error::WsWriteError(Box::new(e)))
             }
-            _ = sleep(Duration::from_secs(10)) => Err(Error::WsWriteTimeout)
+            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsWriteTimeout)
         }
     }
 
@@ -73,7 +75,7 @@ impl WebSocketWrite for WsWrite {
             result = cls => {
                 result
             }
-            _ = sleep(Duration::from_secs(10)) => Err(Error::WsCloseTimeout)
+            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsCloseTimeout)
         }
     }
 }
@@ -89,7 +91,7 @@ impl WebSocketRead for WsRead {
             result = self.0.next() => {
                 Ok(result.ok_or(Error::WsClosed)?.map_err(|e| Error::WsReadError(Box::new(e)))?.into_data())
             }
-            _ = sleep(Duration::from_secs(10)) => Err(Error::WsReadTimeout)
+            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsReadTimeout)
         }
     }
 }
@@ -109,12 +111,15 @@ impl WebSocket for WsClient {
     where
         T: Into<Cow<'a, str>> + Send,
     {
-        let (stream, _) = connect_async(url.into().as_ref())
-            .await
-            .map_err(|e| Error::WsConnectError(Box::new(e)))?;
-        let (write, read) = stream.split();
-
-        Ok((WsWrite(write), WsRead(read)))
+        let url = url.into();
+        select! {
+            result = connect_async(url.as_ref()) => {
+                let (stream, _) = result.map_err(|e| Error::WsConnectError(Box::new(e)))?;
+                let (write, read) = stream.split();
+                Ok((WsWrite(write), WsRead(read)))
+            }
+            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsConnectTimeout)
+        }
     }
 }
 

@@ -261,13 +261,6 @@ impl<C> DanmakuClient<C> {
 }
 
 impl<C: WebSocket> DanmakuClient<C> {
-    async fn send<T: Generate>(
-        ws_write: &mut <C as WebSocket>::Write,
-        data: &mut ProtoData,
-    ) -> Result<()> {
-        ws_write.write(T::generate(data)?).await
-    }
-
     pub async fn danmaku(self) -> Result<()> {
         if !self.token.is_valid() {
             return Err(Error::InvalidToken);
@@ -297,104 +290,76 @@ impl<C: WebSocket> DanmakuClient<C> {
         let (hb_tx, hb_rx) = oneshot::channel::<Interval>();
         let write = async {
             let mut hb_tx = Some(hb_tx);
-            let mut err = None;
-            while let Some(cmd) = ws_rx.next().await {
-                match cmd {
-                    Command::Decode(msg) => {
-                        let payload = match data.decode(msg.as_slice()) {
-                            Ok(payload) => payload,
-                            Err(e) => {
-                                err = Some(e);
-                                break;
-                            }
-                        };
-                        if let Err(e) = handle(
-                            &payload,
-                            &mut ws_tx,
-                            &mut action_tx,
-                            &mut state_tx,
-                            &mut notify_tx,
-                        )
-                        .await
-                        {
-                            err = Some(e);
-                            break;
+            let mut running = true;
+            let result = async {
+                while let Some(cmd) = ws_rx.next().await {
+                    match cmd {
+                        Command::Decode(msg) => {
+                            let payload = data.decode(msg.as_slice())?;
+                            handle(
+                                &payload,
+                                &mut ws_tx,
+                                &mut action_tx,
+                                &mut state_tx,
+                                &mut notify_tx,
+                            )
+                            .await?;
                         }
-                    }
-                    Command::StartHeartbeat(interval) => {
-                        if let Some(tx) = hb_tx.take() {
-                            let timer = async_timer::interval(Duration::from_millis(interval));
-                            if tx.send(timer).is_err() {
-                                err = Some(Error::SendOneshotError);
-                                break;
+                        Command::StartHeartbeat(interval) if running => {
+                            if let Some(tx) = hb_tx.take() {
+                                let timer = async_timer::interval(Duration::from_millis(interval));
+                                tx.send(timer).map_err(|_| Error::SendOneshotError)?;
                             }
                         }
-                    }
-                    Command::Heartbeat => {
-                        if let Err(e) =
-                            Self::send::<acproto::ZtLiveCsHeartbeat>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::Heartbeat if running => {
+                            ws_write
+                                .write(acproto::ZtLiveCsHeartbeat::generate(&mut data)?)
+                                .await?
                         }
-                    }
-                    Command::KeepAlive => {
-                        if let Err(e) =
-                            Self::send::<acproto::KeepAliveRequest>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::KeepAlive if running => {
+                            ws_write
+                                .write(acproto::KeepAliveRequest::generate(&mut data)?)
+                                .await?
                         }
-                    }
-                    Command::PushMessage => {
-                        if let Err(e) =
-                            Self::send::<acproto::ZtLiveScMessage>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::PushMessage if running => {
+                            ws_write
+                                .write(acproto::ZtLiveScMessage::generate(&mut data)?)
+                                .await?
                         }
-                    }
-                    Command::TicketInvalid => {
-                        data.ticket_index = (data.ticket_index + 1) % data.tickets.len();
-                        if let Err(e) =
-                            Self::send::<acproto::ZtLiveCsEnterRoom>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::TicketInvalid if running => {
+                            data.ticket_index = (data.ticket_index + 1) % data.tickets.len();
+                            ws_write
+                                .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
+                                .await?;
                         }
-                    }
-                    Command::Stop => {
-                        if let Err(e) =
-                            Self::send::<acproto::ZtLiveCsUserExit>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::Stop if running => {
+                            ws_write
+                                .write(acproto::ZtLiveCsUserExit::generate(&mut data)?)
+                                .await?;
+                            ws_write
+                                .write(acproto::UnregisterRequest::generate(&mut data)?)
+                                .await?;
+                            let _ = ws_write.close().await;
+                            ws_rx.close();
+                            running = false;
                         }
-                        if let Err(e) =
-                            Self::send::<acproto::UnregisterRequest>(&mut ws_write, &mut data).await
-                        {
-                            err = Some(e);
-                            break;
+                        Command::Close if running => {
+                            let _ = ws_write.close().await;
+                            ws_rx.close();
+                            running = false;
                         }
-                        let _ = ws_write.close().await;
-                        ws_rx.close();
-                        ws_tx.close_channel();
-                    }
-                    Command::Close => {
-                        let _ = ws_write.close().await;
-                        ws_rx.close();
-                        ws_tx.close_channel();
+                        _ => {}
                     }
                 }
-            }
-            if let Some(e) = err {
-                let _ = ws_write.close().await;
-                ws_rx.close();
-                ws_tx.close_channel();
-                return Err(e);
-            }
 
-            Result::Ok(())
+                Result::Ok(())
+            }
+            .await;
+            let _ = ws_write.close().await;
+            ws_rx.close();
+            ws_tx.close_channel();
+
+            result
         };
         let read = async {
             while let Ok(msg) = ws_read.read().await {
@@ -433,7 +398,6 @@ impl<C: WebSocket> DanmakuClient<C> {
         if let Err(e) = hbr {
             log::trace!("heartbeat error: {:?}", e);
         }
-        let _ = ws_write.close().await;
 
         Ok(())
     }

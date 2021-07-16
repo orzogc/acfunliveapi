@@ -14,6 +14,8 @@ pub enum Error {
     WsCloseError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("the WebSocket connection was closed")]
     WsClosed,
+    #[error("it was timeout for the WebSocket client to connect the server")]
+    WsConnectTimeout,
     #[error("it was timeout for the WebSocket client to read a message")]
     WsReadTimeout,
     #[error("it was timeout for the WebSocket client to send a message")]
