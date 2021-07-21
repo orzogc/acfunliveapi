@@ -10,13 +10,12 @@ use futures::{
     stream::{SplitSink, SplitStream, StreamExt},
 };
 #[cfg(feature = "default_ws_client")]
-use std::time::Duration;
-#[cfg(feature = "default_ws_client")]
-use tokio::{net::TcpStream, select, time::sleep};
+use tokio::{net::TcpStream, time::timeout};
 #[cfg(feature = "default_ws_client")]
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-const WS_TIMEOUT: u64 = 10;
+#[cfg(feature = "default_ws_client")]
+const WS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[async_trait]
 pub trait WebSocketWrite {
@@ -52,11 +51,9 @@ impl WebSocketWrite for WsWrite {
     where
         T: Into<Vec<u8>> + Send,
     {
-        select! {
-            result = self.0.send(Message::binary(message)) => {
-                result.map_err(|e| Error::WsWriteError(Box::new(e)))
-            }
-            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsWriteTimeout)
+        match timeout(WS_TIMEOUT, self.0.send(Message::binary(message))).await {
+            Ok(result) => result.map_err(|e| Error::WsWriteError(Box::new(e))),
+            Err(_) => Err(Error::WsWriteTimeout),
         }
     }
 
@@ -71,11 +68,9 @@ impl WebSocketWrite for WsWrite {
                 .await
                 .map_err(|e| Error::WsCloseError(Box::new(e)))
         };
-        select! {
-            result = cls => {
-                result
-            }
-            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsCloseTimeout)
+        match timeout(WS_TIMEOUT, cls).await {
+            Ok(result) => result,
+            Err(_) => Err(Error::WsCloseTimeout),
         }
     }
 }
@@ -87,11 +82,12 @@ pub struct WsRead(SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>);
 #[async_trait]
 impl WebSocketRead for WsRead {
     async fn read(&mut self) -> Result<Vec<u8>> {
-        select! {
-            result = self.0.next() => {
-                Ok(result.ok_or(Error::WsClosed)?.map_err(|e| Error::WsReadError(Box::new(e)))?.into_data())
-            }
-            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsReadTimeout)
+        match timeout(WS_TIMEOUT, self.0.next()).await {
+            Ok(result) => Ok(result
+                .ok_or(Error::WsClosed)?
+                .map_err(|e| Error::WsReadError(Box::new(e)))?
+                .into_data()),
+            Err(_) => Err(Error::WsReadTimeout),
         }
     }
 }
@@ -112,13 +108,13 @@ impl WebSocket for WsClient {
         T: Into<Cow<'a, str>> + Send,
     {
         let url = url.into();
-        select! {
-            result = connect_async(url.as_ref()) => {
+        match timeout(WS_TIMEOUT, connect_async(url.as_ref())).await {
+            Ok(result) => {
                 let (stream, _) = result.map_err(|e| Error::WsConnectError(Box::new(e)))?;
                 let (write, read) = stream.split();
                 Ok((WsWrite(write), WsRead(read)))
             }
-            _ = sleep(Duration::from_secs(WS_TIMEOUT)) => Err(Error::WsConnectTimeout)
+            Err(_) => Err(Error::WsConnectTimeout),
         }
     }
 }
