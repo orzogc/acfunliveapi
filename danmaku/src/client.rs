@@ -3,8 +3,9 @@ use async_compression::futures::bufread::GzipDecoder;
 use async_timer::Interval;
 use futures::{
     channel::{mpsc, oneshot},
+    future::FutureExt,
     io::AsyncReadExt,
-    join,
+    select,
     {sink::SinkExt, stream::StreamExt},
 };
 use prost::Message;
@@ -19,6 +20,7 @@ use acfunliveapi::{
 use std::borrow::Cow;
 
 const CHANNEL_SIZE: usize = 100;
+const WAIT: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug)]
 enum Command {
@@ -291,75 +293,66 @@ impl<C: WebSocket> DanmakuClient<C> {
         let write = async {
             let mut hb_tx = Some(hb_tx);
             let mut running = true;
-            let result = async {
-                while let Some(cmd) = ws_rx.next().await {
-                    match cmd {
-                        Command::Decode(msg) => {
-                            let payload = data.decode(msg.as_slice())?;
-                            handle(
-                                &payload,
-                                &mut ws_tx,
-                                &mut action_tx,
-                                &mut state_tx,
-                                &mut notify_tx,
-                            )
-                            .await?;
-                        }
-                        Command::StartHeartbeat(interval) if running => {
-                            if let Some(tx) = hb_tx.take() {
-                                let timer = async_timer::interval(Duration::from_millis(interval));
-                                tx.send(timer).map_err(|_| Error::SendOneshotError)?;
-                            }
-                        }
-                        Command::Heartbeat if running => {
-                            ws_write
-                                .write(acproto::ZtLiveCsHeartbeat::generate(&mut data)?)
-                                .await?
-                        }
-                        Command::KeepAlive if running => {
-                            ws_write
-                                .write(acproto::KeepAliveRequest::generate(&mut data)?)
-                                .await?
-                        }
-                        Command::PushMessage if running => {
-                            ws_write
-                                .write(acproto::ZtLiveScMessage::generate(&mut data)?)
-                                .await?
-                        }
-                        Command::TicketInvalid if running => {
-                            data.ticket_index = (data.ticket_index + 1) % data.tickets.len();
-                            ws_write
-                                .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
-                                .await?;
-                        }
-                        Command::Stop if running => {
-                            ws_write
-                                .write(acproto::ZtLiveCsUserExit::generate(&mut data)?)
-                                .await?;
-                            ws_write
-                                .write(acproto::UnregisterRequest::generate(&mut data)?)
-                                .await?;
-                            let _ = ws_write.close().await;
-                            ws_rx.close();
-                            running = false;
-                        }
-                        Command::Close if running => {
-                            let _ = ws_write.close().await;
-                            ws_rx.close();
-                            running = false;
-                        }
-                        _ => {}
+            while let Some(cmd) = ws_rx.next().await {
+                match cmd {
+                    Command::Decode(msg) => {
+                        let payload = data.decode(msg.as_slice())?;
+                        handle(
+                            &payload,
+                            &mut ws_tx,
+                            &mut action_tx,
+                            &mut state_tx,
+                            &mut notify_tx,
+                        )
+                        .await?;
                     }
+                    Command::StartHeartbeat(interval) if running => {
+                        if let Some(tx) = hb_tx.take() {
+                            let timer = async_timer::interval(Duration::from_millis(interval));
+                            tx.send(timer).map_err(|_| Error::SendOneshotError)?;
+                        }
+                    }
+                    Command::Heartbeat if running => {
+                        ws_write
+                            .write(acproto::ZtLiveCsHeartbeat::generate(&mut data)?)
+                            .await?
+                    }
+                    Command::KeepAlive if running => {
+                        ws_write
+                            .write(acproto::KeepAliveRequest::generate(&mut data)?)
+                            .await?
+                    }
+                    Command::PushMessage if running => {
+                        ws_write
+                            .write(acproto::ZtLiveScMessage::generate(&mut data)?)
+                            .await?
+                    }
+                    Command::TicketInvalid if running => {
+                        data.ticket_index = (data.ticket_index + 1) % data.tickets.len();
+                        ws_write
+                            .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
+                            .await?;
+                    }
+                    Command::Stop if running => {
+                        ws_write
+                            .write(acproto::ZtLiveCsUserExit::generate(&mut data)?)
+                            .await?;
+                        ws_write
+                            .write(acproto::UnregisterRequest::generate(&mut data)?)
+                            .await?;
+                        let _ = ws_write.close().await;
+                        ws_rx.close();
+                        running = false;
+                    }
+                    Command::Close if running => {
+                        let _ = ws_write.close().await;
+                        ws_rx.close();
+                        running = false;
+                    }
+                    _ => {}
                 }
-
-                Result::Ok(())
             }
-            .await;
-            let _ = ws_write.close().await;
-            ws_rx.close();
-            ws_tx.close_channel();
-
-            result
+            Result::Ok(())
         };
         let read = async {
             while let Ok(msg) = ws_read.read().await {
@@ -369,13 +362,12 @@ impl<C: WebSocket> DanmakuClient<C> {
                 }
             }
             let _ = read_ws_tx.send(Command::Close).await;
-            read_ws_tx.close_channel();
+            async_timer::interval(WAIT).as_mut().await;
         };
         let heartbeat = async {
             let mut timer = match hb_rx.await {
                 Ok(interval) => interval,
                 Err(e) => {
-                    hb_ws_tx.close_channel();
                     return Err(e.into());
                 }
             };
@@ -387,17 +379,23 @@ impl<C: WebSocket> DanmakuClient<C> {
                 }
                 timer.as_mut().await;
             }
-            hb_ws_tx.close_channel();
-
+            async_timer::interval(WAIT).as_mut().await;
             Result::Ok(())
         };
-        let (wr, _, hbr) = join!(write, read, heartbeat);
-        if let Err(e) = wr {
-            log::trace!("writing WebSocket message error: {:?}", e);
+        select! {
+            result = write.fuse() => {
+                if let Err(e) = result {
+                    log::trace!("writing WebSocket message error: {}", e);
+                }
+            }
+            _ = read.fuse() => {}
+            result = heartbeat.fuse() => {
+                if let Err(e) = result {
+                    log::trace!("heartbeat error: {}", e);
+                }
+            }
         }
-        if let Err(e) = hbr {
-            log::trace!("heartbeat error: {:?}", e);
-        }
+        let _ = ws_write.close().await;
 
         Ok(())
     }

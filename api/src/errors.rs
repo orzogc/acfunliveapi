@@ -36,6 +36,6 @@ pub enum Error {
 
 impl From<pretend::Error> for Error {
     fn from(err: pretend::Error) -> Self {
-        Self::PretendError(format!("pretend error: {:?}", err))
+        Self::PretendError(format!("pretend error: {}", err))
     }
 }
