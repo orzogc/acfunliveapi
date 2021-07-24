@@ -341,12 +341,12 @@ impl<C: WebSocket> DanmakuClient<C> {
                         ws_write
                             .write(acproto::UnregisterRequest::generate(&mut data)?)
                             .await?;
-                        let _ = ws_write.close().await;
+                        let _ = ws_write.close_connection().await;
                         ws_rx.close();
                         running = false;
                     }
                     Command::Close if running => {
-                        let _ = ws_write.close().await;
+                        let _ = ws_write.close_connection().await;
                         ws_rx.close();
                         running = false;
                     }
@@ -426,7 +426,7 @@ impl<C: WebSocket> DanmakuClient<C> {
             _ = heartbeat => {}
         }
 
-        let _ = ws_write.close().await;
+        let _ = ws_write.close_connection().await;
 
         Ok(())
     }

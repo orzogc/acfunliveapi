@@ -5,13 +5,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("the WebSocket client failed to connect the server")]
-    WsConnectError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    WsConnectError,
     #[error("the WebSocket client failed to read a message from the server")]
-    WsReadError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    WsReadError,
     #[error("the WebSocket client failed to send a message to the server")]
-    WsWriteError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    WsWriteError,
     #[error("the WebSocket client failed to close the connection")]
-    WsCloseError(#[source] Box<dyn std::error::Error + Send + Sync>),
+    WsCloseError,
     #[error("the WebSocket connection was closed")]
     WsClosed,
     #[error("it was timeout for the WebSocket client to connect the server")]
@@ -66,4 +66,8 @@ pub enum Error {
     #[cfg(feature = "_serde")]
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[cfg(feature = "default_ws_client")]
+    #[error(transparent)]
+    TungsteniteError(#[from] tokio_tungstenite::tungstenite::Error),
 }
