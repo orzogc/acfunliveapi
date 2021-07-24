@@ -111,7 +111,7 @@ fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
     }
 }
 
-pub(crate) async fn action_signal(
+pub(crate) fn action_signal(
     payload: &[u8],
     action_tx: &mut mpsc::Sender<Vec<ActionSignal>>,
 ) -> Result<()> {
@@ -150,7 +150,7 @@ pub(crate) async fn action_signal(
     Ok(())
 }
 
-pub(crate) async fn state_signal(
+pub(crate) fn state_signal(
     payload: &[u8],
     state_tx: &mut mpsc::Sender<Vec<StateSignal>>,
 ) -> Result<()> {
@@ -211,7 +211,7 @@ pub(crate) async fn state_signal(
     Ok(())
 }
 
-pub(crate) async fn notify_signal(
+pub(crate) fn notify_signal(
     payload: &[u8],
     notify_tx: &mut mpsc::Sender<Vec<NotifySignal>>,
 ) -> Result<()> {

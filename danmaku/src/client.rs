@@ -3,9 +3,7 @@ use async_compression::futures::bufread::GzipDecoder;
 use async_timer::Interval;
 use futures::{
     channel::{mpsc, oneshot},
-    future::FutureExt,
     io::AsyncReadExt,
-    select,
     {sink::SinkExt, stream::StreamExt},
 };
 use prost::Message;
@@ -18,6 +16,9 @@ use acfunliveapi::{
 };
 #[cfg(feature = "api")]
 use std::borrow::Cow;
+
+#[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
+use futures::future::FutureExt;
 
 const CHANNEL_SIZE: usize = 100;
 const WAIT: Duration = Duration::from_secs(2);
@@ -355,20 +356,40 @@ impl<C: WebSocket> DanmakuClient<C> {
             Result::Ok(())
         };
         let read = async {
+            loop {
+                match ws_read.read().await {
+                    Ok(msg) => {
+                        if read_ws_tx.send(Command::Decode(msg)).await.is_err() {
+                            log::trace!("failed to send message to handle");
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        log::trace!("reading WebSocket message error: {}", e);
+                        break;
+                    }
+                }
+            }
+            /*
             while let Ok(msg) = ws_read.read().await {
                 if read_ws_tx.send(Command::Decode(msg)).await.is_err() {
                     log::trace!("failed to send message to handle");
                     break;
                 }
             }
+            */
             let _ = read_ws_tx.send(Command::Close).await;
+            #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
             async_timer::interval(WAIT).as_mut().await;
+            #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
+            tokio::time::sleep(WAIT).await;
         };
         let heartbeat = async {
             let mut timer = match hb_rx.await {
                 Ok(interval) => interval,
-                Err(e) => {
-                    return Err(e.into());
+                Err(_) => {
+                    log::trace!("heartbeat oneshot channel has been canceled");
+                    return;
                 }
             };
             let mut heartbeat_seq_id: i64 = 0;
@@ -379,22 +400,32 @@ impl<C: WebSocket> DanmakuClient<C> {
                 }
                 timer.as_mut().await;
             }
+            #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
             async_timer::interval(WAIT).as_mut().await;
-            Result::Ok(())
+            #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
+            tokio::time::sleep(WAIT).await;
         };
-        select! {
+
+        #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
+        futures::select! {
             result = write.fuse() => {
                 if let Err(e) = result {
                     log::trace!("writing WebSocket message error: {}", e);
                 }
             }
             _ = read.fuse() => {}
-            result = heartbeat.fuse() => {
-                if let Err(e) = result {
-                    log::trace!("heartbeat error: {}", e);
-                }
-            }
+            _ = heartbeat.fuse() => {}
         }
+
+        #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
+        tokio::select! {
+            Err(e) = write => {
+                log::trace!("writing WebSocket message error: {}", e);
+            }
+            _ = read => {}
+            _ = heartbeat => {}
+        }
+
         let _ = ws_write.close().await;
 
         Ok(())
@@ -471,17 +502,17 @@ async fn handle(
             match message.message_type.as_str() {
                 ACTION_SIGNAL => {
                     if let Some(tx) = action_tx {
-                        action_signal(payload.as_slice(), tx).await?;
+                        action_signal(payload.as_slice(), tx)?;
                     }
                 }
                 STATE_SIGNAL => {
                     if let Some(tx) = state_tx {
-                        state_signal(payload.as_slice(), tx).await?;
+                        state_signal(payload.as_slice(), tx)?;
                     }
                 }
                 NOTIFY_SIGNAL => {
                     if let Some(tx) = notify_tx {
-                        notify_signal(payload.as_slice(), tx).await?;
+                        notify_signal(payload.as_slice(), tx)?;
                     }
                 }
                 STATUS_CHANGED => {
@@ -501,7 +532,17 @@ async fn handle(
         }
         _ => {
             if stream.error_code == 10018 {
+                log::trace!(
+                    "DownstreamPayload error: error_code is 10018, stop getting danmaku, error_msg: {}",
+                    stream.error_msg
+                );
                 let _ = ws_tx.send(Command::Stop).await;
+            } else {
+                log::trace!(
+                    "DownstreamPayload error: error_code: {} , error_msg: {}",
+                    stream.error_code,
+                    stream.error_msg
+                );
             }
         }
     }
