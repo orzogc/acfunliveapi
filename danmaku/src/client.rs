@@ -224,112 +224,103 @@ impl<C: WebSocket> Stream for DanmakuClient<C> {
     type Item = Result<Danmaku>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.state {
-            ClientState::BeforeRegister => {
-                ready!(self.client.poll_ready_unpin(cx))?;
-                self.client.start_send_unpin(SendMessage::RegisterRequest)?;
-                self.state = ClientState::Registering;
-                Poll::Pending
-            }
-            ClientState::Registering => {
-                ready!(self.client.poll_flush_unpin(cx))?;
-                let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
-                    result?
-                } else {
-                    self.state = ClientState::Closed;
-                    return Poll::Ready(None);
-                };
-                if let ReceiveMessage::RegisterResponse = msg {
-                    self.message.push(SendMessage::KeepAliveRequest);
-                    self.message.push(SendMessage::ZtLiveCsEnterRoom);
-                    self.state = ClientState::Registered;
-                    Poll::Pending
-                } else {
-                    Poll::Ready(Some(Err(Error::RegisterError)))
+        loop {
+            match self.state {
+                ClientState::BeforeRegister => {
+                    ready!(self.client.poll_ready_unpin(cx))?;
+                    self.client.start_send_unpin(SendMessage::RegisterRequest)?;
+                    self.state = ClientState::Registering;
                 }
-            }
-            ClientState::Registered => {
-                if let Some(interval) = self.interval {
-                    let now = SystemTime::now();
-                    match now.duration_since(self.time) {
-                        Ok(t) => {
-                            if t >= interval {
-                                self.message.push(SendMessage::ZtLiveCsHeartbeat);
-                                self.heartbeat_seq_id += 1;
-                                if self.heartbeat_seq_id % 5 == 4 {
-                                    self.message.push(SendMessage::KeepAliveRequest);
+                ClientState::Registering => {
+                    ready!(self.client.poll_flush_unpin(cx))?;
+                    let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
+                        result?
+                    } else {
+                        self.state = ClientState::Closed;
+                        return Poll::Ready(None);
+                    };
+                    if let ReceiveMessage::RegisterResponse = msg {
+                        self.message.push(SendMessage::KeepAliveRequest);
+                        self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                        self.state = ClientState::Registered;
+                    } else {
+                        return Poll::Ready(Some(Err(Error::RegisterError)));
+                    }
+                }
+                ClientState::Registered => {
+                    if let Some(interval) = self.interval {
+                        let now = SystemTime::now();
+                        match now.duration_since(self.time) {
+                            Ok(t) => {
+                                if t >= interval {
+                                    self.message.push(SendMessage::ZtLiveCsHeartbeat);
+                                    self.heartbeat_seq_id += 1;
+                                    if self.heartbeat_seq_id % 5 == 4 {
+                                        self.message.push(SendMessage::KeepAliveRequest);
+                                    }
+                                    self.time = now;
                                 }
-                                self.time = now;
+                            }
+                            Err(e) => {
+                                log::trace!("failed to get the interval from SystemTime: {}", e)
                             }
                         }
-                        Err(e) => log::trace!("failed to get the interval from SystemTime: {}", e),
                     }
-                }
-                while !self.message.is_empty() {
-                    ready!(self.client.poll_ready_unpin(cx))?;
-                    let msg = self.message.remove(0);
-                    self.client.start_send_unpin(msg)?;
-                }
-                ready!(self.client.poll_flush_unpin(cx))?;
-                let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
-                    result?
-                } else {
-                    self.state = ClientState::Closed;
-                    return Poll::Ready(None);
-                };
-                match msg {
-                    ReceiveMessage::Danmaku(danmaku) => Poll::Ready(Some(Ok(danmaku))),
-                    ReceiveMessage::RegisterResponse => {
-                        log::trace!("registered more than once");
-                        Poll::Pending
-                    }
-                    ReceiveMessage::Interval(interval) => {
-                        self.interval = Some(Duration::from_millis(interval));
-                        Poll::Pending
-                    }
-                    ReceiveMessage::PushMessage => {
-                        self.message.push(SendMessage::ZtLiveScMessage);
-                        Poll::Pending
-                    }
-                    ReceiveMessage::EnterRoom => {
-                        self.message.push(SendMessage::ZtLiveScMessage);
-                        self.message.push(SendMessage::ZtLiveCsEnterRoom);
-                        Poll::Pending
-                    }
-                    ReceiveMessage::PushAndStop => {
-                        self.message.push(SendMessage::ZtLiveScMessage);
-                        self.message.push(SendMessage::ZtLiveCsUserExit);
-                        self.message.push(SendMessage::UnregisterRequest);
-                        self.state = ClientState::Closing;
-                        Poll::Pending
-                    }
-                    ReceiveMessage::Stop => {
-                        self.message.push(SendMessage::ZtLiveCsUserExit);
-                        self.message.push(SendMessage::UnregisterRequest);
-                        self.state = ClientState::Closing;
-                        Poll::Pending
-                    }
-                    ReceiveMessage::Close => {
-                        self.state = ClientState::Closing;
-                        Poll::Pending
-                    }
-                }
-            }
-            ClientState::Closing => {
-                loop {
-                    if !self.message.is_empty() {
+                    while !self.message.is_empty() {
                         ready!(self.client.poll_ready_unpin(cx))?;
                         let msg = self.message.remove(0);
                         self.client.start_send_unpin(msg)?;
+                    }
+                    ready!(self.client.poll_flush_unpin(cx))?;
+                    let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
+                        result?
                     } else {
-                        break;
+                        self.state = ClientState::Closed;
+                        return Poll::Ready(None);
+                    };
+                    match msg {
+                        ReceiveMessage::Danmaku(danmaku) => return Poll::Ready(Some(Ok(danmaku))),
+                        ReceiveMessage::RegisterResponse => {
+                            log::trace!("registered more than once");
+                        }
+                        ReceiveMessage::Interval(interval) => {
+                            self.interval = Some(Duration::from_millis(interval));
+                        }
+                        ReceiveMessage::PushMessage => {
+                            self.message.push(SendMessage::ZtLiveScMessage);
+                        }
+                        ReceiveMessage::EnterRoom => {
+                            self.message.push(SendMessage::ZtLiveScMessage);
+                            self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                        }
+                        ReceiveMessage::PushAndStop => {
+                            self.message.push(SendMessage::ZtLiveScMessage);
+                            self.message.push(SendMessage::ZtLiveCsUserExit);
+                            self.message.push(SendMessage::UnregisterRequest);
+                            self.state = ClientState::Closing;
+                        }
+                        ReceiveMessage::Stop => {
+                            self.message.push(SendMessage::ZtLiveCsUserExit);
+                            self.message.push(SendMessage::UnregisterRequest);
+                            self.state = ClientState::Closing;
+                        }
+                        ReceiveMessage::Close => {
+                            self.state = ClientState::Closing;
+                        }
                     }
                 }
-                ready!(self.client.poll_close_unpin(cx))?;
-                self.state = ClientState::Closed;
-                Poll::Ready(None)
+                ClientState::Closing => {
+                    while !self.message.is_empty() {
+                        ready!(self.client.poll_ready_unpin(cx))?;
+                        let msg = self.message.remove(0);
+                        self.client.start_send_unpin(msg)?;
+                    }
+                    ready!(self.client.poll_close_unpin(cx))?;
+                    self.state = ClientState::Closed;
+                    return Poll::Ready(None);
+                }
+                ClientState::Closed => return Poll::Ready(None),
             }
-            ClientState::Closed => Poll::Ready(None),
         }
     }
 }

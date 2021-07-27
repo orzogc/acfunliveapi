@@ -12,6 +12,7 @@ async fn main() -> Result<()> {
         .filter(Some("acfunliveapi"), log::LevelFilter::Trace)
         .filter(Some("acfunlivedanmaku"), log::LevelFilter::Trace)
         .init();
+
     let liver_uid: i64 = env::var("LIVER_UID")
         .expect("need to set the LIVER_UID environment variable to the liver's uid")
         .parse()
