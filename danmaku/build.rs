@@ -15,7 +15,7 @@ fn main() -> std::io::Result<()> {
         ".",
         "#[cfg_attr(feature = \"_serde\", derive(::serde::Deserialize, ::serde::Serialize))]",
     );
-    config.compile_protos(protos.as_slice(), &[im_path, zt_path])?;
+    config.compile_protos(&protos, &[im_path, zt_path])?;
 
     Ok(())
 }

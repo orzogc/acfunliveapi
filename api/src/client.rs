@@ -221,15 +221,15 @@ impl<C> ApiClient<C> {
     fn ks_query(&self) -> KsQuery {
         if self.is_visitor() {
             KsQuery::visitor(
-                self.user_id_string.as_str(),
-                self.token.device_id.as_str(),
-                self.token.service_token.as_str(),
+                &self.user_id_string,
+                &self.token.device_id,
+                &self.token.service_token,
             )
         } else {
             KsQuery::user(
-                self.user_id_string.as_str(),
-                self.token.device_id.as_str(),
-                self.token.service_token.as_str(),
+                &self.user_id_string,
+                &self.token.device_id,
+                &self.token.service_token,
             )
         }
     }
@@ -313,7 +313,7 @@ where
                         TokenForm {
                             sid: Sid::Midground,
                         },
-                        c.as_str(),
+                        c,
                     )
                     .await?
                     .value();

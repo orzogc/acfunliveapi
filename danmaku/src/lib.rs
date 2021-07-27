@@ -11,5 +11,7 @@ mod proto;
 pub use errors::*;
 pub use proto::acproto;
 
+pub use futures;
+
 #[cfg(feature = "api")]
 pub use acfunliveapi;

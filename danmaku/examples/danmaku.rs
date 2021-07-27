@@ -3,16 +3,20 @@ use acfunliveapi::{
     response::{Gift, GiftList},
 };
 use acfunlivedanmaku::{client::*, danmaku::*, Result};
-use futures::stream::StreamExt;
+use futures::StreamExt;
 use std::{collections::HashMap, env};
-use tokio::select;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::builder()
+        .filter(Some("acfunliveapi"), log::LevelFilter::Trace)
+        .filter(Some("acfunlivedanmaku"), log::LevelFilter::Trace)
+        .init();
     let liver_uid: i64 = env::var("LIVER_UID")
         .expect("need to set the LIVER_UID environment variable to the liver's uid")
         .parse()
         .expect("LIVER_UID should be an integer");
+
     let api_client = ApiClientBuilder::default_client()?
         .liver_uid(liver_uid)
         .build()
@@ -24,32 +28,17 @@ async fn main() -> Result<()> {
         .into_iter()
         .map(|g| (g.gift_id, g))
         .collect();
-    let mut client: DanmakuClient<_> = api_client.into();
-    let mut action_rx = client.action_signal();
-    let action = async {
-        while let Some(action) = action_rx.next().await {
-            handle_action(action, &gifts);
+
+    let mut client = DanmakuClient::default_client(api_client.into()).await?;
+    while let Some(result) = client.next().await {
+        match result {
+            Ok(damaku) => match damaku {
+                Danmaku::ActionSignal(action) => handle_action(action, &gifts),
+                Danmaku::StateSignal(state) => handle_state(state),
+                Danmaku::NotifySignal(notify) => handle_notify(notify),
+            },
+            Err(e) => println!("error: {}", e),
         }
-    };
-    let mut state_rx = client.state_signal();
-    let state = async {
-        while let Some(state) = state_rx.next().await {
-            handle_state(state);
-        }
-    };
-    let mut notify_rx = client.notify_signal();
-    let notify = async {
-        while let Some(notify) = notify_rx.next().await {
-            handle_notify(notify);
-        }
-    };
-    select! {
-        result = client.danmaku() => {
-            result?;
-        }
-        _ = action => {}
-        _ = state => {}
-        _ = notify => {}
     }
 
     Ok(())
@@ -118,10 +107,9 @@ fn handle_action(action: Vec<ActionSignal>, gifts: &HashMap<i64, Gift>) {
                     uper_info.user_id
                 );
             }
-            ActionSignal::Unknown(s) => println!(
-                "unknown action signal: {}",
-                String::from_utf8_lossy(s.as_slice())
-            ),
+            ActionSignal::Unknown(s) => {
+                println!("unknown action signal: {}", String::from_utf8_lossy(&s))
+            }
         }
     }
 }
@@ -158,10 +146,9 @@ fn handle_state(state: Vec<StateSignal>) {
             StateSignal::AuthorChatReady(d) => println!("{:?}", d),
             StateSignal::AuthorChatEnd(d) => println!("{:?}", d),
             StateSignal::AuthorChatChangeSoundConfig(d) => println!("{:?}", d),
-            StateSignal::Unknown(s) => println!(
-                "unknown state signal: {}",
-                String::from_utf8_lossy(s.as_slice())
-            ),
+            StateSignal::Unknown(s) => {
+                println!("unknown state signal: {}", String::from_utf8_lossy(&s))
+            }
         }
     }
 }
@@ -172,10 +159,9 @@ fn handle_notify(notify: Vec<NotifySignal>) {
             NotifySignal::KickedOut(d) => println!("kicked out: {}", d.reason),
             NotifySignal::ViolationAlert(d) => println!("violation alert: {}", d.violation_content),
             NotifySignal::ManagerState(d) => println!("manager state: {:?}", d.state()),
-            NotifySignal::Unknown(s) => println!(
-                "unknown notify signal: {}",
-                String::from_utf8_lossy(s.as_slice())
-            ),
+            NotifySignal::Unknown(s) => {
+                println!("unknown notify signal: {}", String::from_utf8_lossy(&s))
+            }
         }
     }
 }

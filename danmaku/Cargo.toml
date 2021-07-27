@@ -14,17 +14,21 @@ build = "build.rs"
 [features]
 default = ["api", "default_ws_client", "_serde"]
 api = ["acfunliveapi"]
-default_ws_client = ["tokio", "tokio-tungstenite"]
+default_ws_client = ["async-tungstenite", "tokio", "ws_stream_tungstenite"]
 _serde = ["serde", "serde_bytes", "serde_json"]
 
 [dependencies]
 acfunliveapi = { version = "0.1.0", path = "../api", optional = true }
 aes = "0.7.4"
-async-compression = { version = "0.3.8", features = ["futures-io", "gzip"] }
-async-timer = "0.7.4"
+#async-compression = { version = "0.3.8", features = ["futures-io", "gzip"] }
+#async-timer = "0.7.4"
 async-trait = "0.1.50"
+async-tungstenite = { version = "0.13.1", features = ["tokio-rustls"], optional = true }
+asynchronous-codec = "0.6.0"
 base64 = "0.13.0"
 block-modes = "0.8.1"
+derive_more = { version = "0.99.16", default-features = false, features = ["from"] }
+flate2 = "1.0.20"
 futures = "0.3.16"
 log = "0.4.14"
 prost = "0.8.0"
@@ -33,9 +37,14 @@ serde = { version = "1.0.126", features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.5", optional = true }
 serde_json = { version = "1.0.64", optional = true }
 thiserror = "1.0.26"
-tokio = { version = "1.9.0", features = ["macros", "net", "time"], optional = true }
-tokio-tungstenite = { version = "0.15.0", features = ["rustls-tls"], optional = true }
+tokio = { version = "1.9.0", features = ["time"], optional = true }
+#tokio-tungstenite = { version = "0.15.0", features = ["rustls-tls"], optional = true }
+ws_stream_tungstenite = { version = "0.6.1", optional = true }
 
 [build-dependencies]
 prost-build = "0.8.0"
-tokio = { version = "1.9.0", features = ["rt-multi-thread", "macros", "time"] }
+
+[dev-dependencies]
+#async-std = { version = "1.9.0", features = ["attributes", "tokio1"] }
+env_logger = "0.9.0"
+tokio = { version = "1.9.0", features = ["rt-multi-thread", "macros"] }

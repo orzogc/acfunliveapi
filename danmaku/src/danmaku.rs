@@ -1,6 +1,9 @@
-use crate::{acproto, global::*, Error, Result};
-use futures::channel::mpsc;
+use crate::{acproto, global::*, Result};
+use derive_more::From;
 use prost::Message;
+
+#[cfg(feature = "_serde")]
+use crate::Error;
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[cfg_attr(feature = "_serde", serde(rename_all = "camelCase"))]
@@ -38,7 +41,15 @@ impl std::str::FromStr for MedalInfo {
 }
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, From, PartialEq)]
+pub enum Danmaku {
+    ActionSignal(Vec<ActionSignal>),
+    StateSignal(Vec<StateSignal>),
+    NotifySignal(Vec<NotifySignal>),
+}
+
+#[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
+#[derive(Clone, Debug, From, PartialEq)]
 pub enum ActionSignal {
     Comment(acproto::CommonActionSignalComment),
     Like(acproto::CommonActionSignalLike),
@@ -70,7 +81,7 @@ impl ActionSignal {
 }
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, From, PartialEq)]
 pub enum StateSignal {
     AcFunDisplayInfo(acproto::AcfunStateSignalDisplayInfo),
     DisplayInfo(acproto::CommonStateSignalDisplayInfo),
@@ -91,7 +102,7 @@ pub enum StateSignal {
 }
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, From, PartialEq)]
 pub enum NotifySignal {
     KickedOut(acproto::CommonNotifySignalKickedOut),
     ViolationAlert(acproto::CommonNotifySignalViolationAlert),
@@ -100,138 +111,119 @@ pub enum NotifySignal {
     Unknown(Vec<u8>),
 }
 
-#[inline]
-fn transfer<T>(err: mpsc::TrySendError<T>) -> Result<()> {
-    if err.is_full() {
-        log::trace!("the channel is full");
-        Ok(())
-    } else {
-        log::trace!("failed to send message to the channel");
-        Err(Error::SendDanmakuError)
-    }
-}
-
-pub(crate) fn action_signal(
-    payload: &[u8],
-    action_tx: &mut mpsc::Sender<Vec<ActionSignal>>,
-) -> Result<()> {
+pub(crate) fn action_signal(payload: &[u8]) -> Result<Vec<ActionSignal>> {
     let action = acproto::ZtLiveScActionSignal::decode(payload)?;
-    let mut v = Vec::with_capacity(action.item.iter().map(|i| i.payload.len()).sum());
+    let mut signals = Vec::with_capacity(action.item.iter().map(|i| i.payload.len()).sum());
     for item in action.item {
         for pl in item.payload {
-            v.push(match item.signal_type.as_str() {
-                COMMENT => ActionSignal::Comment(acproto::CommonActionSignalComment::decode(
-                    pl.as_slice(),
-                )?),
-                LIKE => ActionSignal::Like(acproto::CommonActionSignalLike::decode(pl.as_slice())?),
-                USER_ENTER_ROOM => ActionSignal::EnterRoom(
-                    acproto::CommonActionSignalUserEnterRoom::decode(pl.as_slice())?,
-                ),
-                FOLLOW_AUTHOR => ActionSignal::FollowAuthor(
-                    acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?,
-                ),
-                THROW_BANANA => ActionSignal::ThrowBanana(
-                    acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?,
-                ),
-                GIFT => ActionSignal::Gift(acproto::CommonActionSignalGift::decode(pl.as_slice())?),
-                RICH_TEXT => ActionSignal::RichText(acproto::CommonActionSignalRichText::decode(
-                    pl.as_slice(),
-                )?),
-                JOIN_CLUB => ActionSignal::JoinClub(acproto::AcfunActionSignalJoinClub::decode(
-                    pl.as_slice(),
-                )?),
-                _ => ActionSignal::Unknown(pl),
+            signals.push(match item.signal_type.as_str() {
+                COMMENT => acproto::CommonActionSignalComment::decode(pl.as_slice())?.into(),
+                LIKE => acproto::CommonActionSignalLike::decode(pl.as_slice())?.into(),
+                USER_ENTER_ROOM => {
+                    acproto::CommonActionSignalUserEnterRoom::decode(pl.as_slice())?.into()
+                }
+                FOLLOW_AUTHOR => {
+                    acproto::CommonActionSignalUserFollowAuthor::decode(pl.as_slice())?.into()
+                }
+                THROW_BANANA => {
+                    acproto::AcfunActionSignalThrowBanana::decode(pl.as_slice())?.into()
+                }
+                GIFT => acproto::CommonActionSignalGift::decode(pl.as_slice())?.into(),
+                RICH_TEXT => acproto::CommonActionSignalRichText::decode(pl.as_slice())?.into(),
+                JOIN_CLUB => acproto::AcfunActionSignalJoinClub::decode(pl.as_slice())?.into(),
+                _ => {
+                    log::trace!("unknown action signal type: {}", item.signal_type);
+                    pl.into()
+                }
             })
         }
     }
-    v.sort_unstable_by_key(ActionSignal::time);
-    action_tx.try_send(v).or_else(transfer)?;
+    signals.sort_unstable_by_key(ActionSignal::time);
 
-    Ok(())
+    Ok(signals)
 }
 
-pub(crate) fn state_signal(
-    payload: &[u8],
-    state_tx: &mut mpsc::Sender<Vec<StateSignal>>,
-) -> Result<()> {
+pub(crate) fn state_signal(payload: &[u8]) -> Result<Vec<StateSignal>> {
     let state = acproto::ZtLiveScStateSignal::decode(payload)?;
-    let mut v = Vec::with_capacity(state.item.len());
+    let mut signals = Vec::with_capacity(state.item.len());
     for item in state.item {
-        v.push(match item.signal_type.as_str() {
-            ACFUN_DISPLAY_INFO => StateSignal::AcFunDisplayInfo(
-                acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?,
-            ),
-            DISPLAY_INFO => StateSignal::DisplayInfo(
-                acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?,
-            ),
-            TOP_USERS => StateSignal::TopUsers(acproto::CommonStateSignalTopUsers::decode(
+        signals.push(match item.signal_type.as_str() {
+            ACFUN_DISPLAY_INFO => {
+                acproto::AcfunStateSignalDisplayInfo::decode(item.payload.as_slice())?.into()
+            }
+            DISPLAY_INFO => {
+                acproto::CommonStateSignalDisplayInfo::decode(item.payload.as_slice())?.into()
+            }
+            TOP_USERS => {
+                acproto::CommonStateSignalTopUsers::decode(item.payload.as_slice())?.into()
+            }
+            RECENT_COMMENT => {
+                acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?.into()
+            }
+            REDPACK_LIST => {
+                acproto::CommonStateSignalCurrentRedpackList::decode(item.payload.as_slice())?
+                    .into()
+            }
+            CHAT_CALL => {
+                acproto::CommonStateSignalChatCall::decode(item.payload.as_slice())?.into()
+            }
+            CHAT_ACCEPT => {
+                acproto::CommonStateSignalChatAccept::decode(item.payload.as_slice())?.into()
+            }
+            CHAT_READY => {
+                acproto::CommonStateSignalChatReady::decode(item.payload.as_slice())?.into()
+            }
+            CHAT_END => acproto::CommonStateSignalChatEnd::decode(item.payload.as_slice())?.into(),
+            AUTHOR_CHAT_CALL => {
+                acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?.into()
+            }
+            AUTHOR_CHAT_ACCEPT => {
+                acproto::CommonStateSignalAuthorChatAccept::decode(item.payload.as_slice())?.into()
+            }
+            AUTHOR_CHAT_READY => {
+                acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?.into()
+            }
+            AUTHOR_CHAT_END => {
+                acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?.into()
+            }
+            SOUND_CONFIG => acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
                 item.payload.as_slice(),
-            )?),
-            RECENT_COMMENT => StateSignal::RecentComment(
-                acproto::CommonStateSignalRecentComment::decode(item.payload.as_slice())?,
-            ),
-            REDPACK_LIST => StateSignal::RedpackList(
-                acproto::CommonStateSignalCurrentRedpackList::decode(item.payload.as_slice())?,
-            ),
-            CHAT_CALL => StateSignal::ChatCall(acproto::CommonStateSignalChatCall::decode(
-                item.payload.as_slice(),
-            )?),
-            CHAT_ACCEPT => StateSignal::ChatAccept(acproto::CommonStateSignalChatAccept::decode(
-                item.payload.as_slice(),
-            )?),
-            CHAT_READY => StateSignal::ChatReady(acproto::CommonStateSignalChatReady::decode(
-                item.payload.as_slice(),
-            )?),
-            CHAT_END => StateSignal::ChatEnd(acproto::CommonStateSignalChatEnd::decode(
-                item.payload.as_slice(),
-            )?),
-            AUTHOR_CHAT_CALL => StateSignal::AuthorChatCall(
-                acproto::CommonStateSignalAuthorChatCall::decode(item.payload.as_slice())?,
-            ),
-            AUTHOR_CHAT_ACCEPT => StateSignal::AuthorChatAccept(
-                acproto::CommonStateSignalAuthorChatAccept::decode(item.payload.as_slice())?,
-            ),
-            AUTHOR_CHAT_READY => StateSignal::AuthorChatReady(
-                acproto::CommonStateSignalAuthorChatReady::decode(item.payload.as_slice())?,
-            ),
-            AUTHOR_CHAT_END => StateSignal::AuthorChatEnd(
-                acproto::CommonStateSignalAuthorChatEnd::decode(item.payload.as_slice())?,
-            ),
-            SOUND_CONFIG => StateSignal::AuthorChatChangeSoundConfig(
-                acproto::CommonStateSignalAuthorChatChangeSoundConfig::decode(
-                    item.payload.as_slice(),
-                )?,
-            ),
-            LIVE_STATE => StateSignal::Unknown(item.payload),
-            _ => StateSignal::Unknown(item.payload),
+            )?
+            .into(),
+            LIVE_STATE => {
+                log::trace!("unknown state signal type: {}", item.signal_type);
+                item.payload.into()
+            }
+            _ => {
+                log::trace!("unknown state signal type: {}", item.signal_type);
+                item.payload.into()
+            }
         })
     }
-    state_tx.try_send(v).or_else(transfer)?;
 
-    Ok(())
+    Ok(signals)
 }
 
-pub(crate) fn notify_signal(
-    payload: &[u8],
-    notify_tx: &mut mpsc::Sender<Vec<NotifySignal>>,
-) -> Result<()> {
+pub(crate) fn notify_signal(payload: &[u8]) -> Result<Vec<NotifySignal>> {
     let notify = acproto::ZtLiveScNotifySignal::decode(payload)?;
-    let mut v = Vec::with_capacity(notify.item.len());
+    let mut signals = Vec::with_capacity(notify.item.len());
     for item in notify.item {
-        v.push(match item.signal_type.as_str() {
-            KICKED_OUT => NotifySignal::KickedOut(acproto::CommonNotifySignalKickedOut::decode(
-                item.payload.as_slice(),
-            )?),
-            VIOLATION_ALERT => NotifySignal::ViolationAlert(
-                acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?,
-            ),
-            MANAGER_STATE => NotifySignal::ManagerState(
-                acproto::CommonNotifySignalLiveManagerState::decode(item.payload.as_slice())?,
-            ),
-            _ => NotifySignal::Unknown(item.payload),
+        signals.push(match item.signal_type.as_str() {
+            KICKED_OUT => {
+                acproto::CommonNotifySignalKickedOut::decode(item.payload.as_slice())?.into()
+            }
+            VIOLATION_ALERT => {
+                acproto::CommonNotifySignalViolationAlert::decode(item.payload.as_slice())?.into()
+            }
+            MANAGER_STATE => {
+                acproto::CommonNotifySignalLiveManagerState::decode(item.payload.as_slice())?.into()
+            }
+            _ => {
+                log::trace!("unknown notify signal type: {}", item.signal_type);
+                item.payload.into()
+            }
         })
     }
-    notify_tx.try_send(v).or_else(transfer)?;
 
-    Ok(())
+    Ok(signals)
 }

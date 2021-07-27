@@ -1,13 +1,12 @@
 use crate::{danmaku::*, global::*, proto::*, websocket::*, Error, Result};
-use async_compression::futures::bufread::GzipDecoder;
-use async_timer::Interval;
-use futures::{
-    channel::{mpsc, oneshot},
-    io::AsyncReadExt,
-    {sink::SinkExt, stream::StreamExt},
+use asynchronous_codec::Framed;
+use futures::{ready, SinkExt, Stream, StreamExt};
+use std::{
+    convert::TryInto,
+    pin::Pin,
+    task::{Context, Poll},
+    time::{Duration, SystemTime},
 };
-use prost::Message;
-use std::{convert::TryFrom, time::Duration};
 
 #[cfg(feature = "api")]
 use acfunliveapi::{
@@ -17,23 +16,7 @@ use acfunliveapi::{
 #[cfg(feature = "api")]
 use std::borrow::Cow;
 
-#[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
-use futures::future::FutureExt;
-
-const CHANNEL_SIZE: usize = 100;
-const WAIT: Duration = Duration::from_secs(2);
-
-#[derive(Clone, Debug)]
-enum Command {
-    Decode(Vec<u8>),
-    StartHeartbeat(u64),
-    Heartbeat,
-    KeepAlive,
-    PushMessage,
-    TicketInvalid,
-    Stop,
-    Close,
-}
+//const CHANNEL_SIZE: usize = 100;
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -144,34 +127,77 @@ impl<C> From<&ApiClient<C>> for DanmakuToken {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
+enum ClientState {
+    BeforeRegister,
+    Registering,
+    Registered,
+    Closing,
+    Closed,
+}
+
+#[derive(Debug)]
 pub struct DanmakuClient<C> {
-    token: DanmakuToken,
-    ws_client: C,
-    action_tx: Option<mpsc::Sender<Vec<ActionSignal>>>,
-    state_tx: Option<mpsc::Sender<Vec<StateSignal>>>,
-    notify_tx: Option<mpsc::Sender<Vec<NotifySignal>>>,
+    client: Framed<C, DanmakuProto>,
+    state: ClientState,
+    message: Vec<SendMessage>,
+    interval: Option<Duration>,
+    time: SystemTime,
+    heartbeat_seq_id: i64,
+}
+
+impl<C: WebSocket> DanmakuClient<C> {
+    #[inline]
+    pub async fn new(token: DanmakuToken) -> Result<Self> {
+        if token.is_valid() {
+            match C::connect(DANMAKU_SERVER).await {
+                Ok(client) => Ok(Self {
+                    client: Framed::new(client, token.try_into()?),
+                    state: ClientState::BeforeRegister,
+                    message: Vec::new(),
+                    interval: None,
+                    time: SystemTime::now(),
+                    heartbeat_seq_id: 0,
+                }),
+                Err(e) => Err(Error::WebSocketConnectError(e.to_string())),
+            }
+        } else {
+            Err(Error::InvalidToken)
+        }
+    }
+
+    #[inline]
+    pub fn user_id(&self) -> i64 {
+        self.client.codec().user_id
+    }
+
+    #[inline]
+    pub fn liver_uid(&self) -> i64 {
+        self.client.codec().liver_uid
+    }
+
+    #[inline]
+    pub fn live_id(&self) -> &str {
+        &self.client.codec().live_id
+    }
+
+    #[inline]
+    pub async fn close(&mut self) -> Result<()> {
+        self.client.close().await
+    }
 }
 
 #[cfg(feature = "default_ws_client")]
-impl DanmakuClient<WsClient> {
+impl DanmakuClient<WebSocketClient> {
     #[inline]
-    pub fn default_client(token: DanmakuToken) -> Self {
-        Self {
-            token,
-            ws_client: WsClient,
-            action_tx: None,
-            state_tx: None,
-            notify_tx: None,
-        }
+    pub async fn default_client(token: DanmakuToken) -> Result<Self> {
+        Self::new(token).await
     }
 
     #[cfg(feature = "api")]
     #[inline]
     pub async fn visitor(liver_uid: i64) -> Result<Self> {
-        Ok(Self::default_client(
-            DanmakuToken::visitor(liver_uid).await?,
-        ))
+        Self::default_client(DanmakuToken::visitor(liver_uid).await?).await
     }
 
     #[cfg(feature = "api")]
@@ -181,9 +207,7 @@ impl DanmakuClient<WsClient> {
         password: impl Into<Cow<'a, str>>,
         liver_uid: i64,
     ) -> Result<Self> {
-        Ok(Self::default_client(
-            DanmakuToken::user(account, password, liver_uid).await?,
-        ))
+        Self::default_client(DanmakuToken::user(account, password, liver_uid).await?).await
     }
 
     #[cfg(feature = "api")]
@@ -192,362 +216,122 @@ impl DanmakuClient<WsClient> {
     where
         C: pretend::client::Client + Send + Sync,
     {
-        Ok(Self::default_client(
-            DanmakuToken::from_api_client(client, liver_uid).await?,
-        ))
+        Self::default_client(DanmakuToken::from_api_client(client, liver_uid).await?).await
     }
 }
 
-impl<C> DanmakuClient<C> {
-    #[inline]
-    pub fn new(token: DanmakuToken, client: C) -> Self {
-        Self {
-            token,
-            ws_client: client,
-            action_tx: None,
-            state_tx: None,
-            notify_tx: None,
-        }
-    }
+impl<C: WebSocket> Stream for DanmakuClient<C> {
+    type Item = Result<Danmaku>;
 
-    #[inline]
-    pub fn set_token(&mut self, token: DanmakuToken) -> &mut Self {
-        self.token = token;
-        self
-    }
-
-    #[inline]
-    pub fn token(&self) -> &DanmakuToken {
-        &self.token
-    }
-
-    #[inline]
-    pub fn token_mut(&mut self) -> &mut DanmakuToken {
-        &mut self.token
-    }
-
-    #[inline]
-    pub fn user_id(&self) -> i64 {
-        self.token.user_id
-    }
-
-    #[inline]
-    pub fn liver_uid(&self) -> i64 {
-        self.token.liver_uid
-    }
-
-    #[inline]
-    pub fn live_id(&self) -> &str {
-        self.token.live_id.as_str()
-    }
-
-    #[inline]
-    pub fn action_signal(&mut self) -> mpsc::Receiver<Vec<ActionSignal>> {
-        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
-        self.action_tx = Some(tx);
-        rx
-    }
-
-    #[inline]
-    pub fn state_signal(&mut self) -> mpsc::Receiver<Vec<StateSignal>> {
-        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
-        self.state_tx = Some(tx);
-        rx
-    }
-
-    #[inline]
-    pub fn notify_signal(&mut self) -> mpsc::Receiver<Vec<NotifySignal>> {
-        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
-        self.notify_tx = Some(tx);
-        rx
-    }
-}
-
-impl<C: WebSocket> DanmakuClient<C> {
-    pub async fn danmaku(self) -> Result<()> {
-        if !self.token.is_valid() {
-            return Err(Error::InvalidToken);
-        }
-        let mut data: ProtoData = self.token.into();
-        let (mut ws_write, mut ws_read) = self.ws_client.connect(DANMAKU_SERVER).await?;
-        let mut action_tx = self.action_tx;
-        let mut state_tx = self.state_tx;
-        let mut notify_tx = self.notify_tx;
-
-        ws_write
-            .write(acproto::RegisterRequest::generate(&mut data)?)
-            .await?;
-        let msg = ws_read.read().await?;
-        let payload = data.decode(msg.as_slice())?;
-        data.register_response(&payload)?;
-        ws_write
-            .write(acproto::KeepAliveRequest::generate(&mut data)?)
-            .await?;
-        ws_write
-            .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
-            .await?;
-
-        let (mut ws_tx, mut ws_rx) = mpsc::unbounded::<Command>();
-        let mut read_ws_tx = ws_tx.clone();
-        let mut hb_ws_tx = ws_tx.clone();
-        let (hb_tx, hb_rx) = oneshot::channel::<Interval>();
-        let write = async {
-            let mut hb_tx = Some(hb_tx);
-            let mut running = true;
-            while let Some(cmd) = ws_rx.next().await {
-                match cmd {
-                    Command::Decode(msg) => {
-                        let payload = data.decode(msg.as_slice())?;
-                        handle(
-                            &payload,
-                            &mut ws_tx,
-                            &mut action_tx,
-                            &mut state_tx,
-                            &mut notify_tx,
-                        )
-                        .await?;
-                    }
-                    Command::StartHeartbeat(interval) if running => {
-                        if let Some(tx) = hb_tx.take() {
-                            let timer = async_timer::interval(Duration::from_millis(interval));
-                            tx.send(timer).map_err(|_| Error::SendOneshotError)?;
-                        }
-                    }
-                    Command::Heartbeat if running => {
-                        ws_write
-                            .write(acproto::ZtLiveCsHeartbeat::generate(&mut data)?)
-                            .await?
-                    }
-                    Command::KeepAlive if running => {
-                        ws_write
-                            .write(acproto::KeepAliveRequest::generate(&mut data)?)
-                            .await?
-                    }
-                    Command::PushMessage if running => {
-                        ws_write
-                            .write(acproto::ZtLiveScMessage::generate(&mut data)?)
-                            .await?
-                    }
-                    Command::TicketInvalid if running => {
-                        data.ticket_index = (data.ticket_index + 1) % data.tickets.len();
-                        ws_write
-                            .write(acproto::ZtLiveCsEnterRoom::generate(&mut data)?)
-                            .await?;
-                    }
-                    Command::Stop if running => {
-                        ws_write
-                            .write(acproto::ZtLiveCsUserExit::generate(&mut data)?)
-                            .await?;
-                        ws_write
-                            .write(acproto::UnregisterRequest::generate(&mut data)?)
-                            .await?;
-                        let _ = ws_write.close_connection().await;
-                        ws_rx.close();
-                        running = false;
-                    }
-                    Command::Close if running => {
-                        let _ = ws_write.close_connection().await;
-                        ws_rx.close();
-                        running = false;
-                    }
-                    _ => {}
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.state {
+            ClientState::BeforeRegister => {
+                ready!(self.client.poll_ready_unpin(cx))?;
+                self.client.start_send_unpin(SendMessage::RegisterRequest)?;
+                self.state = ClientState::Registering;
+                Poll::Pending
+            }
+            ClientState::Registering => {
+                ready!(self.client.poll_flush_unpin(cx))?;
+                let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
+                    result?
+                } else {
+                    self.state = ClientState::Closed;
+                    return Poll::Ready(None);
+                };
+                if let ReceiveMessage::RegisterResponse = msg {
+                    self.message.push(SendMessage::KeepAliveRequest);
+                    self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                    self.state = ClientState::Registered;
+                    Poll::Pending
+                } else {
+                    Poll::Ready(Some(Err(Error::RegisterError)))
                 }
             }
-            Result::Ok(())
-        };
-        let read = async {
-            loop {
-                match ws_read.read().await {
-                    Ok(msg) => {
-                        if read_ws_tx.send(Command::Decode(msg)).await.is_err() {
-                            log::trace!("failed to send message to handle");
-                            break;
+            ClientState::Registered => {
+                if let Some(interval) = self.interval {
+                    let now = SystemTime::now();
+                    match now.duration_since(self.time) {
+                        Ok(t) => {
+                            if t >= interval {
+                                self.message.push(SendMessage::ZtLiveCsHeartbeat);
+                                self.heartbeat_seq_id += 1;
+                                if self.heartbeat_seq_id % 5 == 4 {
+                                    self.message.push(SendMessage::KeepAliveRequest);
+                                }
+                                self.time = now;
+                            }
                         }
+                        Err(e) => log::trace!("failed to get the interval from SystemTime: {}", e),
                     }
-                    Err(e) => {
-                        log::trace!("reading WebSocket message error: {}", e);
+                }
+                while !self.message.is_empty() {
+                    ready!(self.client.poll_ready_unpin(cx))?;
+                    let msg = self.message.remove(0);
+                    self.client.start_send_unpin(msg)?;
+                }
+                ready!(self.client.poll_flush_unpin(cx))?;
+                let msg = if let Some(result) = ready!(self.client.poll_next_unpin(cx)) {
+                    result?
+                } else {
+                    self.state = ClientState::Closed;
+                    return Poll::Ready(None);
+                };
+                match msg {
+                    ReceiveMessage::Danmaku(danmaku) => Poll::Ready(Some(Ok(danmaku))),
+                    ReceiveMessage::RegisterResponse => {
+                        log::trace!("registered more than once");
+                        Poll::Pending
+                    }
+                    ReceiveMessage::Interval(interval) => {
+                        self.interval = Some(Duration::from_millis(interval));
+                        Poll::Pending
+                    }
+                    ReceiveMessage::PushMessage => {
+                        self.message.push(SendMessage::ZtLiveScMessage);
+                        Poll::Pending
+                    }
+                    ReceiveMessage::EnterRoom => {
+                        self.message.push(SendMessage::ZtLiveScMessage);
+                        self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                        Poll::Pending
+                    }
+                    ReceiveMessage::PushAndStop => {
+                        self.message.push(SendMessage::ZtLiveScMessage);
+                        self.message.push(SendMessage::ZtLiveCsUserExit);
+                        self.message.push(SendMessage::UnregisterRequest);
+                        self.state = ClientState::Closing;
+                        Poll::Pending
+                    }
+                    ReceiveMessage::Stop => {
+                        self.message.push(SendMessage::ZtLiveCsUserExit);
+                        self.message.push(SendMessage::UnregisterRequest);
+                        self.state = ClientState::Closing;
+                        Poll::Pending
+                    }
+                    ReceiveMessage::Close => {
+                        self.state = ClientState::Closing;
+                        Poll::Pending
+                    }
+                }
+            }
+            ClientState::Closing => {
+                loop {
+                    if !self.message.is_empty() {
+                        ready!(self.client.poll_ready_unpin(cx))?;
+                        let msg = self.message.remove(0);
+                        self.client.start_send_unpin(msg)?;
+                    } else {
                         break;
                     }
                 }
+                ready!(self.client.poll_close_unpin(cx))?;
+                self.state = ClientState::Closed;
+                Poll::Ready(None)
             }
-            /*
-            while let Ok(msg) = ws_read.read().await {
-                if read_ws_tx.send(Command::Decode(msg)).await.is_err() {
-                    log::trace!("failed to send message to handle");
-                    break;
-                }
-            }
-            */
-            let _ = read_ws_tx.send(Command::Close).await;
-            #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
-            async_timer::interval(WAIT).as_mut().await;
-            #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
-            tokio::time::sleep(WAIT).await;
-        };
-        let heartbeat = async {
-            let mut timer = match hb_rx.await {
-                Ok(interval) => interval,
-                Err(_) => {
-                    log::trace!("heartbeat oneshot channel has been canceled");
-                    return;
-                }
-            };
-            let mut heartbeat_seq_id: i64 = 0;
-            while hb_ws_tx.send(Command::Heartbeat).await.is_ok() {
-                heartbeat_seq_id += 1;
-                if heartbeat_seq_id % 5 == 4 && hb_ws_tx.send(Command::KeepAlive).await.is_err() {
-                    break;
-                }
-                timer.as_mut().await;
-            }
-            #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
-            async_timer::interval(WAIT).as_mut().await;
-            #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
-            tokio::time::sleep(WAIT).await;
-        };
-
-        #[cfg(not(any(feature = "default_ws_client", feature = "tokio")))]
-        futures::select! {
-            result = write.fuse() => {
-                if let Err(e) = result {
-                    log::trace!("writing WebSocket message error: {}", e);
-                }
-            }
-            _ = read.fuse() => {}
-            _ = heartbeat.fuse() => {}
-        }
-
-        #[cfg(any(feature = "default_ws_client", feature = "tokio"))]
-        tokio::select! {
-            Err(e) = write => {
-                log::trace!("writing WebSocket message error: {}", e);
-            }
-            _ = read => {}
-            _ = heartbeat => {}
-        }
-
-        let _ = ws_write.close_connection().await;
-
-        Ok(())
-    }
-}
-
-#[cfg(feature = "default_ws_client")]
-impl From<DanmakuToken> for DanmakuClient<WsClient> {
-    #[inline]
-    fn from(token: DanmakuToken) -> Self {
-        Self::default_client(token)
-    }
-}
-
-#[cfg(all(feature = "api", feature = "default_ws_client"))]
-impl<C> From<ApiClient<C>> for DanmakuClient<WsClient> {
-    #[inline]
-    fn from(client: ApiClient<C>) -> Self {
-        Self::default_client(client.into())
-    }
-}
-
-#[cfg(all(feature = "api", feature = "default_ws_client"))]
-impl<C> From<&ApiClient<C>> for DanmakuClient<WsClient> {
-    #[inline]
-    fn from(client: &ApiClient<C>) -> Self {
-        Self::default_client(client.into())
-    }
-}
-
-async fn handle(
-    stream: &acproto::DownstreamPayload,
-    ws_tx: &mut mpsc::UnboundedSender<Command>,
-    action_tx: &mut Option<mpsc::Sender<Vec<ActionSignal>>>,
-    state_tx: &mut Option<mpsc::Sender<Vec<StateSignal>>>,
-    notify_tx: &mut Option<mpsc::Sender<Vec<NotifySignal>>>,
-) -> Result<()> {
-    match stream.command.as_str() {
-        GLOBAL_CS_CMD => {
-            let cmd = acproto::ZtLiveCsCmdAck::decode(stream.payload_data.as_slice())?;
-            match cmd.cmd_ack_type.as_str() {
-                ENTER_ROOM_ACK => {
-                    let enter_room = acproto::ZtLiveCsEnterRoomAck::decode(cmd.payload.as_slice())?;
-                    let interval = if enter_room.heartbeat_interval_ms > 0 {
-                        u64::try_from(enter_room.heartbeat_interval_ms)?
-                    } else {
-                        10000
-                    };
-                    let _ = ws_tx.send(Command::StartHeartbeat(interval)).await;
-                }
-                HEARTBEAT_ACK => {}
-                USER_EXIT_ACK => {}
-                _ => {}
-            }
-        }
-        KEEP_ALIVE => {}
-        PING => {}
-        UNREGISTER => {
-            let _ = ws_tx.send(Command::Close).await;
-        }
-        PUSH_MESSAGE => {
-            let _ = ws_tx.send(Command::PushMessage).await;
-            let message = acproto::ZtLiveScMessage::decode(stream.payload_data.as_slice())?;
-            let payload = if message.compression_type()
-                == acproto::zt_live_sc_message::CompressionType::Gzip
-            {
-                let mut reader = GzipDecoder::new(message.payload.as_slice());
-                let mut buf = Vec::new();
-                let _ = reader.read_to_end(&mut buf).await?;
-                buf
-            } else {
-                message.payload
-            };
-            match message.message_type.as_str() {
-                ACTION_SIGNAL => {
-                    if let Some(tx) = action_tx {
-                        action_signal(payload.as_slice(), tx)?;
-                    }
-                }
-                STATE_SIGNAL => {
-                    if let Some(tx) = state_tx {
-                        state_signal(payload.as_slice(), tx)?;
-                    }
-                }
-                NOTIFY_SIGNAL => {
-                    if let Some(tx) = notify_tx {
-                        notify_signal(payload.as_slice(), tx)?;
-                    }
-                }
-                STATUS_CHANGED => {
-                    let status = acproto::ZtLiveScStatusChanged::decode(payload.as_slice())?;
-                    if status.r#type() == acproto::zt_live_sc_status_changed::Type::LiveClosed
-                        || status.r#type() == acproto::zt_live_sc_status_changed::Type::LiveBanned
-                    {
-                        let _ = ws_tx.send(Command::Stop).await;
-                    }
-                }
-                TICKET_INVALID => {
-                    log::trace!("danmaku ticket invalid");
-                    let _ = ws_tx.send(Command::TicketInvalid).await;
-                }
-                _ => {}
-            }
-        }
-        _ => {
-            if stream.error_code == 10018 {
-                log::trace!(
-                    "DownstreamPayload error: error_code is 10018, stop getting danmaku, error_msg: {}",
-                    stream.error_msg
-                );
-                let _ = ws_tx.send(Command::Stop).await;
-            } else {
-                log::trace!(
-                    "DownstreamPayload error: error_code: {} , error_msg: {}",
-                    stream.error_code,
-                    stream.error_msg
-                );
-            }
+            ClientState::Closed => Poll::Ready(None),
         }
     }
-
-    Ok(())
 }
 
 #[cfg(all(feature = "api", feature = "default_ws_client"))]
@@ -564,31 +348,16 @@ mod tests {
             .parse()
             .expect("LIVER_UID should be an integer");
         let mut client = DanmakuClient::visitor(liver_uid).await?;
-        let mut action_rx = client.action_signal();
-        let action = async {
-            while let Some(action) = action_rx.next().await {
-                println!("{:?}", action);
-            }
-        };
-        let mut state_rx = client.state_signal();
-        let state = async {
-            while let Some(state) = state_rx.next().await {
-                println!("{:?}", state);
-            }
-        };
-        let mut notify_rx = client.notify_signal();
-        let notify = async {
-            while let Some(notify) = notify_rx.next().await {
-                println!("{:?}", notify);
+        let danmaku = async {
+            while let Some(result) = client.next().await {
+                match result {
+                    Ok(damaku) => println!("{:?}", damaku),
+                    Err(e) => println!("error: {}", e),
+                }
             }
         };
         select! {
-            result = client.danmaku() => {
-                result?;
-            }
-            _ = action => {}
-            _ = state => {}
-            _ = notify => {}
+            _ = danmaku => {}
             _ = sleep(Duration::from_secs(60)) => {}
         }
 
