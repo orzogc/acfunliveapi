@@ -14,9 +14,7 @@ use acfunliveapi::{
     pretend,
 };
 #[cfg(feature = "api")]
-use std::borrow::Cow;
-
-//const CHANNEL_SIZE: usize = 100;
+use std::{borrow::Cow, convert::TryFrom};
 
 #[cfg_attr(feature = "_serde", derive(::serde::Deserialize, ::serde::Serialize))]
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -106,23 +104,25 @@ impl DanmakuToken {
 }
 
 #[cfg(feature = "api")]
-impl<C> From<ApiClient<C>> for DanmakuToken {
-    #[inline]
-    fn from(client: ApiClient<C>) -> Self {
+impl<C> TryFrom<ApiClient<C>> for DanmakuToken {
+    type Error = Error;
+
+    fn try_from(client: ApiClient<C>) -> Result<Self> {
         match client.live() {
-            Some(live) => Self::from_token_live(client.token(), live),
-            None => Self::from_token_live(client.token(), &Live::default()),
+            Some(live) => Ok(Self::from_token_live(client.token(), live)),
+            None => Err(Error::NoLiveInfo),
         }
     }
 }
 
 #[cfg(feature = "api")]
-impl<C> From<&ApiClient<C>> for DanmakuToken {
-    #[inline]
-    fn from(client: &ApiClient<C>) -> Self {
+impl<C> TryFrom<&ApiClient<C>> for DanmakuToken {
+    type Error = Error;
+
+    fn try_from(client: &ApiClient<C>) -> Result<Self> {
         match client.live() {
-            Some(live) => Self::from_token_live(client.token(), live),
-            None => Self::from_token_live(client.token(), &Live::default()),
+            Some(live) => Ok(Self::from_token_live(client.token(), live)),
+            None => Err(Error::NoLiveInfo),
         }
     }
 }
@@ -135,6 +135,9 @@ enum ClientState {
     Closing,
     Closed,
 }
+
+#[cfg(feature = "default_ws_client")]
+pub type DefaultDanmakuClient = DanmakuClient<WebSocketClient>;
 
 #[derive(Debug)]
 pub struct DanmakuClient<C> {

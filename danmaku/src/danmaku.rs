@@ -190,10 +190,6 @@ pub(crate) fn state_signal(payload: &[u8]) -> Result<Vec<StateSignal>> {
                 item.payload.as_slice(),
             )?
             .into(),
-            LIVE_STATE => {
-                log::trace!("unknown state signal type: {}", item.signal_type);
-                item.payload.into()
-            }
             _ => {
                 log::trace!("unknown state signal type: {}", item.signal_type);
                 item.payload.into()

@@ -99,6 +99,9 @@ pub struct Live {
     pub stream_list: Vec<Stream>,
 }
 
+#[cfg(feature = "default_http_client")]
+pub type DefaultApiClient = ApiClient<HttpClient>;
+
 #[derive(Clone, Debug)]
 pub struct ApiClient<C> {
     clients: Clients<C>,

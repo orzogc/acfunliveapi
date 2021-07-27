@@ -72,14 +72,14 @@ pub(crate) struct DanmakuProto {
     service_token: String,
     pub(crate) live_id: String,
     enter_room_attach: String,
-    pub(crate) tickets: Vec<String>,
+    tickets: Vec<String>,
     app_id: i32,
     instance_id: i64,
     session_key: Option<Vec<u8>>,
     seq_id: i64,
     header_seq_id: i64,
     heartbeat_seq_id: i64,
-    pub(crate) ticket_index: usize,
+    ticket_index: usize,
 }
 
 impl DanmakuProto {
@@ -113,13 +113,13 @@ impl DanmakuProto {
     }
 
     #[inline]
-    fn command(&self, command: String, paload: Option<Vec<u8>>) -> Result<Vec<u8>> {
+    fn command(&self, command: String, paload: Option<Vec<u8>>) -> Vec<u8> {
         let mut cmd = acproto::ZtLiveCsCmd {
             cmd_type: command,
             ticket: self
                 .tickets
                 .get(self.ticket_index)
-                .ok_or(Error::IndexOutOfRange("tickets", self.ticket_index))?
+                .expect("ticket_index is out of range")
                 .clone(),
             live_id: self.live_id.clone(),
             ..Default::default()
@@ -128,7 +128,7 @@ impl DanmakuProto {
             cmd.payload = data;
         }
 
-        Ok(cmd.encode_to_vec())
+        cmd.encode_to_vec()
     }
 
     #[inline]
@@ -139,109 +139,11 @@ impl DanmakuProto {
 
         Ok(())
     }
-}
 
-impl Encoder for DanmakuProto {
-    type Item = SendMessage;
-
-    type Error = Error;
-
-    // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<()> {
-        let (mut header, payload) = match item {
-            SendMessage::RegisterRequest => acproto::RegisterRequest::generate(self)?,
-            SendMessage::UnregisterRequest => acproto::UnregisterRequest::generate(self)?,
-            SendMessage::ZtLiveCsEnterRoom => acproto::ZtLiveCsEnterRoom::generate(self)?,
-            SendMessage::KeepAliveRequest => acproto::KeepAliveRequest::generate(self)?,
-            SendMessage::ZtLiveScMessage => acproto::ZtLiveScMessage::generate(self)?,
-            SendMessage::ZtLiveCsHeartbeat => acproto::ZtLiveCsHeartbeat::generate(self)?,
-            SendMessage::ZtLiveCsUserExit => acproto::ZtLiveCsUserExit::generate(self)?,
-        };
-
-        let payload = payload.encode_to_vec();
-        header.decoded_payload_len = u32::try_from(payload.len())?;
-        let encrypted = match header.encryption_mode() {
-            acproto::packet_header::EncryptionMode::KEncryptionNone => payload,
-            acproto::packet_header::EncryptionMode::KEncryptionServiceToken => {
-                encrypt(&payload, &self.security_key)?
-            }
-            acproto::packet_header::EncryptionMode::KEncryptionSessionKey => {
-                if let Some(key) = &self.session_key {
-                    encrypt(&payload, key)?
-                } else {
-                    return Err(Error::NoSessionKey);
-                }
-            }
-        };
-        let header = header.encode_to_vec();
-
-        dst.reserve(3 * U32_LENGTH + header.len() + encrypted.len());
-        dst.extend_from_slice(&PROTO_MAGIC);
-        dst.extend_from_slice(&(u32::try_from(header.len())?).to_be_bytes());
-        dst.extend_from_slice(&(u32::try_from(encrypted.len())?).to_be_bytes());
-        dst.extend_from_slice(&header);
-        dst.extend_from_slice(&encrypted);
-
-        Ok(())
-    }
-}
-
-impl Decoder for DanmakuProto {
-    type Item = ReceiveMessage;
-
-    type Error = Error;
-
-    // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>> {
-        if src.len() < 3 * U32_LENGTH {
-            return Ok(None);
-        }
-
-        let header_length = usize::try_from(u32::from_be_bytes(
-            src[U32_LENGTH..2 * U32_LENGTH].try_into()?,
-        ))?;
-        let body_length = usize::try_from(u32::from_be_bytes(
-            src[2 * U32_LENGTH..3 * U32_LENGTH].try_into()?,
-        ))?;
-        if src.len() < 3 * U32_LENGTH + header_length + body_length {
-            src.reserve(3 * U32_LENGTH + header_length + body_length - src.len());
-            return Ok(None);
-        }
-
-        src.advance(3 * U32_LENGTH);
-        let header = acproto::PacketHeader::decode(src.split_to(header_length))?;
-        self.app_id = header.app_id;
-        self.header_seq_id = header.seq_id;
-        let body = src.split_to(body_length);
-        let decrypted: Vec<u8>;
-        let payload = match header.encryption_mode() {
-            acproto::packet_header::EncryptionMode::KEncryptionNone => body.as_ref(),
-            acproto::packet_header::EncryptionMode::KEncryptionServiceToken => {
-                decrypted = decrypt(&body, &self.security_key)?;
-                decrypted.as_slice()
-            }
-            acproto::packet_header::EncryptionMode::KEncryptionSessionKey => {
-                decrypted = if let Some(key) = &self.session_key {
-                    decrypt(&body, key)?
-                } else {
-                    return Err(Error::NoSessionKey);
-                };
-                decrypted.as_slice()
-            }
-        };
-        let payload_len = usize::try_from(header.decoded_payload_len)?;
-        if payload.len() != payload_len {
-            return Err(Error::ProtoDataLengthError(
-                "payload length",
-                payload_len,
-                payload.len(),
-            ));
-        }
-        let stream = acproto::DownstreamPayload::decode(payload)?;
-
+    fn danmaku(&mut self, stream: &acproto::DownstreamPayload) -> Result<Option<ReceiveMessage>> {
         match stream.command.as_str() {
             REGISTER => {
-                self.register_response(&stream)?;
+                self.register_response(stream)?;
                 Ok(Some(ReceiveMessage::RegisterResponse))
             }
             GLOBAL_CS_CMD => {
@@ -338,6 +240,108 @@ impl Decoder for DanmakuProto {
     }
 }
 
+impl Encoder for DanmakuProto {
+    type Item = SendMessage;
+
+    type Error = Error;
+
+    // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
+    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<()> {
+        let (mut header, payload) = match item {
+            SendMessage::RegisterRequest => acproto::RegisterRequest::generate(self),
+            SendMessage::UnregisterRequest => acproto::UnregisterRequest::generate(self),
+            SendMessage::ZtLiveCsEnterRoom => acproto::ZtLiveCsEnterRoom::generate(self),
+            SendMessage::KeepAliveRequest => acproto::KeepAliveRequest::generate(self),
+            SendMessage::ZtLiveScMessage => acproto::ZtLiveScMessage::generate(self),
+            SendMessage::ZtLiveCsHeartbeat => acproto::ZtLiveCsHeartbeat::generate(self),
+            SendMessage::ZtLiveCsUserExit => acproto::ZtLiveCsUserExit::generate(self),
+        };
+
+        let payload = payload.encode_to_vec();
+        header.decoded_payload_len = u32::try_from(payload.len())?;
+        let encrypted = match header.encryption_mode() {
+            acproto::packet_header::EncryptionMode::KEncryptionNone => payload,
+            acproto::packet_header::EncryptionMode::KEncryptionServiceToken => {
+                encrypt(&payload, &self.security_key)?
+            }
+            acproto::packet_header::EncryptionMode::KEncryptionSessionKey => {
+                if let Some(key) = &self.session_key {
+                    encrypt(&payload, key)?
+                } else {
+                    return Err(Error::NoSessionKey);
+                }
+            }
+        };
+        let header = header.encode_to_vec();
+
+        dst.reserve(3 * U32_LENGTH + header.len() + encrypted.len());
+        dst.extend_from_slice(&PROTO_MAGIC);
+        dst.extend_from_slice(&(u32::try_from(header.len())?).to_be_bytes());
+        dst.extend_from_slice(&(u32::try_from(encrypted.len())?).to_be_bytes());
+        dst.extend_from_slice(&header);
+        dst.extend_from_slice(&encrypted);
+
+        Ok(())
+    }
+}
+
+impl Decoder for DanmakuProto {
+    type Item = ReceiveMessage;
+
+    type Error = Error;
+
+    // https://github.com/wpscott/AcFunDanmaku/tree/master/AcFunDanmu
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>> {
+        if src.len() < 3 * U32_LENGTH {
+            return Ok(None);
+        }
+
+        let header_length = usize::try_from(u32::from_be_bytes(
+            src[U32_LENGTH..2 * U32_LENGTH].try_into()?,
+        ))?;
+        let body_length = usize::try_from(u32::from_be_bytes(
+            src[2 * U32_LENGTH..3 * U32_LENGTH].try_into()?,
+        ))?;
+        if src.len() < 3 * U32_LENGTH + header_length + body_length {
+            src.reserve(3 * U32_LENGTH + header_length + body_length - src.len());
+            return Ok(None);
+        }
+
+        src.advance(3 * U32_LENGTH);
+        let header = acproto::PacketHeader::decode(src.split_to(header_length))?;
+        self.app_id = header.app_id;
+        self.header_seq_id = header.seq_id;
+        let body = src.split_to(body_length);
+        let decrypted: Vec<u8>;
+        let payload = match header.encryption_mode() {
+            acproto::packet_header::EncryptionMode::KEncryptionNone => body.as_ref(),
+            acproto::packet_header::EncryptionMode::KEncryptionServiceToken => {
+                decrypted = decrypt(&body, &self.security_key)?;
+                decrypted.as_slice()
+            }
+            acproto::packet_header::EncryptionMode::KEncryptionSessionKey => {
+                decrypted = if let Some(key) = &self.session_key {
+                    decrypt(&body, key)?
+                } else {
+                    return Err(Error::NoSessionKey);
+                };
+                decrypted.as_slice()
+            }
+        };
+        let payload_len = usize::try_from(header.decoded_payload_len)?;
+        if payload.len() != payload_len {
+            return Err(Error::ProtoDataLengthError(
+                "payload length",
+                payload_len,
+                payload.len(),
+            ));
+        }
+        let stream = acproto::DownstreamPayload::decode(payload)?;
+
+        self.danmaku(&stream)
+    }
+}
+
 impl TryFrom<DanmakuToken> for DanmakuProto {
     type Error = Error;
 
@@ -359,15 +363,11 @@ impl TryFrom<DanmakuToken> for DanmakuProto {
 }
 
 pub(crate) trait Generate {
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)>;
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload);
 }
 
 impl Generate for acproto::RegisterRequest {
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let register = Self {
             app_info: Some(acproto::AppInfo {
                 sdk_version: CLIENT_LIVE_SDK_VERSION.to_string(),
@@ -401,45 +401,39 @@ impl Generate for acproto::RegisterRequest {
         });
         proto.seq_id += 1;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::UnregisterRequest {
     #[inline]
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let payload = proto.payload(UNREGISTER.to_string(), None);
         let header = proto.header();
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::ZtLiveCsEnterRoom {
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let enter = Self {
             enter_room_attach: proto.enter_room_attach.clone(),
             client_live_sdk_version: CLIENT_LIVE_SDK_VERSION.to_string(),
             ..Default::default()
         };
 
-        let cmd = proto.command(ENTER_ROOM.to_string(), Some(enter.encode_to_vec()))?;
+        let cmd = proto.command(ENTER_ROOM.to_string(), Some(enter.encode_to_vec()));
         let payload = proto.payload(GLOBAL_CS_CMD.to_string(), Some(cmd));
         let header = proto.header();
         proto.seq_id += 1;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::KeepAliveRequest {
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let keep_alive = Self {
             presence_status: acproto::register_request::PresenceStatus::KPresenceOnline.into(),
             app_active_status: acproto::register_request::ActiveStatus::KAppInForeground.into(),
@@ -450,57 +444,50 @@ impl Generate for acproto::KeepAliveRequest {
         let header = proto.header();
         proto.seq_id += 1;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::ZtLiveScMessage {
     #[inline]
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let payload = proto.payload(PUSH_MESSAGE.to_string(), None);
         let mut header = proto.header();
         header.seq_id = proto.header_seq_id;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::ZtLiveCsHeartbeat {
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
         let heartbeat = Self {
-            client_timestamp_ms: i64::try_from(
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)?
-                    .as_millis(),
-            )?,
+            client_timestamp_ms: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64,
             sequence: proto.heartbeat_seq_id,
         };
 
-        let cmd = proto.command(HEARTBEAT.to_string(), Some(heartbeat.encode_to_vec()))?;
+        let cmd = proto.command(HEARTBEAT.to_string(), Some(heartbeat.encode_to_vec()));
         let payload = proto.payload(GLOBAL_CS_CMD.to_string(), Some(cmd));
         let header = proto.header();
         proto.heartbeat_seq_id += 1;
         proto.seq_id += 1;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 
 impl Generate for acproto::ZtLiveCsUserExit {
     #[inline]
-    fn generate(
-        proto: &mut DanmakuProto,
-    ) -> Result<(acproto::PacketHeader, acproto::UpstreamPayload)> {
-        let cmd = proto.command(USER_EXIT.to_string(), None)?;
+    fn generate(proto: &mut DanmakuProto) -> (acproto::PacketHeader, acproto::UpstreamPayload) {
+        let cmd = proto.command(USER_EXIT.to_string(), None);
         let payload = proto.payload(GLOBAL_CS_CMD.to_string(), Some(cmd));
         let header = proto.header();
         proto.seq_id += 1;
 
-        Ok((header, payload))
+        (header, payload)
     }
 }
 

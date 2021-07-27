@@ -4,7 +4,7 @@ use acfunliveapi::{
 };
 use acfunlivedanmaku::{client::*, danmaku::*, Result};
 use futures::StreamExt;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, convert::TryInto, env};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         .map(|g| (g.gift_id, g))
         .collect();
 
-    let mut client = DanmakuClient::default_client(api_client.into()).await?;
+    let mut client = DanmakuClient::default_client(api_client.try_into()?).await?;
     while let Some(result) = client.next().await {
         match result {
             Ok(damaku) => match damaku {

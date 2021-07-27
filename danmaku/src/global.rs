@@ -49,7 +49,7 @@ pub(crate) const AUTHOR_CHAT_ACCEPT: &str = "CommonStateSignalAuthorChatAccept";
 pub(crate) const AUTHOR_CHAT_READY: &str = "CommonStateSignalAuthorChatReady";
 pub(crate) const AUTHOR_CHAT_END: &str = "CommonStateSignalAuthorChatEnd";
 pub(crate) const SOUND_CONFIG: &str = "CommonStateSignalAuthorChatChangeSoundConfig";
-pub(crate) const LIVE_STATE: &str = "CommonStateSignalLiveState";
+//pub(crate) const LIVE_STATE: &str = "CommonStateSignalLiveState";
 
 pub(crate) const KICKED_OUT: &str = "CommonNotifySignalKickedOut";
 pub(crate) const VIOLATION_ALERT: &str = "CommonNotifySignalViolationAlert";

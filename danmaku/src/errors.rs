@@ -24,12 +24,8 @@ pub enum Error {
     TryFromSliceError(#[from] std::array::TryFromSliceError),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-    #[error("index {1} in {0} was out of range")]
-    IndexOutOfRange(&'static str, usize),
     #[error("invalid danmaku token")]
     InvalidToken,
-    #[error(transparent)]
-    SystemTimeError(#[from] std::time::SystemTimeError),
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("no session key")]
@@ -40,6 +36,9 @@ pub enum Error {
     #[cfg(feature = "api")]
     #[error(transparent)]
     AcFunLiveApiError(#[from] acfunliveapi::Error),
+    #[cfg(feature = "api")]
+    #[error("no live info in api client")]
+    NoLiveInfo,
 
     #[cfg(feature = "_serde")]
     #[error(transparent)]
