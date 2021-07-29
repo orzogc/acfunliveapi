@@ -41,6 +41,7 @@ impl HttpClient {
     }
 }
 
+// https://github.com/SfietKonstantin/pretend/blob/main/pretend-reqwest/src/lib.rs
 #[async_trait]
 impl Client for HttpClient {
     async fn execute(

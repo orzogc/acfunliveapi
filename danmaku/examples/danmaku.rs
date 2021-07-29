@@ -4,7 +4,8 @@ use acfunliveapi::{
 };
 use acfunlivedanmaku::{client::*, danmaku::*, Result};
 use futures::StreamExt;
-use std::{collections::HashMap, convert::TryInto, env};
+use std::{collections::HashMap, convert::TryInto, env, time::Duration};
+use tokio::time::timeout;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,14 +32,20 @@ async fn main() -> Result<()> {
         .collect();
 
     let mut client = DanmakuClient::default_client(api_client.try_into()?).await?;
-    while let Some(result) = client.next().await {
-        match result {
-            Ok(damaku) => match damaku {
-                Danmaku::ActionSignal(action) => handle_action(action, &gifts),
-                Danmaku::StateSignal(state) => handle_state(state),
-                Danmaku::NotifySignal(notify) => handle_notify(notify),
-            },
-            Err(e) => println!("error: {}", e),
+    loop {
+        match timeout(Duration::from_secs(10), client.next()).await {
+            Ok(Some(Ok(Danmaku::ActionSignal(action)))) => handle_action(action, &gifts),
+            Ok(Some(Ok(Danmaku::StateSignal(state)))) => handle_state(state),
+            Ok(Some(Ok(Danmaku::NotifySignal(notify)))) => handle_notify(notify),
+            Ok(Some(Err(e))) => {
+                println!("error: {}", e);
+                break;
+            }
+            Ok(None) => break,
+            Err(_) => {
+                println!("timeout");
+                break;
+            }
         }
     }
 

@@ -1,9 +1,10 @@
+use crate::Error;
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncWrite};
 use std::borrow::Cow;
 
 #[cfg(feature = "default_ws_client")]
-use crate::{Error, Result};
+use crate::Result;
 #[cfg(feature = "default_ws_client")]
 use async_tungstenite::tokio::ConnectStream;
 #[cfg(feature = "default_ws_client")]
@@ -26,7 +27,7 @@ const WS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[async_trait]
 pub trait WebSocket: AsyncRead + AsyncWrite + Unpin + Sized {
-    type Error: std::error::Error;
+    type Error: From<Error>;
 
     async fn connect<'a, T>(url: T) -> std::result::Result<Self, Self::Error>
     where

@@ -140,8 +140,8 @@ enum ClientState {
 pub type DefaultDanmakuClient = DanmakuClient<WebSocketClient>;
 
 #[derive(Debug)]
-pub struct DanmakuClient<C> {
-    client: Framed<C, DanmakuProto>,
+pub struct DanmakuClient<W> {
+    client: Framed<W, DanmakuProto>,
     state: ClientState,
     message: Vec<SendMessage>,
     interval: Option<Duration>,
@@ -149,11 +149,11 @@ pub struct DanmakuClient<C> {
     heartbeat_seq_id: i64,
 }
 
-impl<C: WebSocket> DanmakuClient<C> {
+impl<W: WebSocket> DanmakuClient<W> {
     #[inline]
-    pub async fn new(token: DanmakuToken) -> Result<Self> {
+    pub async fn new(token: DanmakuToken) -> std::result::Result<Self, W::Error> {
         if token.is_valid() {
-            match C::connect(DANMAKU_SERVER).await {
+            match W::connect(DANMAKU_SERVER).await {
                 Ok(client) => Ok(Self {
                     client: Framed::new(client, token.try_into()?),
                     state: ClientState::BeforeRegister,
@@ -162,10 +162,10 @@ impl<C: WebSocket> DanmakuClient<C> {
                     time: SystemTime::now(),
                     heartbeat_seq_id: 0,
                 }),
-                Err(e) => Err(Error::WebSocketConnectError(e.to_string())),
+                Err(e) => Err(e),
             }
         } else {
-            Err(Error::InvalidToken)
+            Err(Error::InvalidToken.into())
         }
     }
 
@@ -223,8 +223,8 @@ impl DanmakuClient<WebSocketClient> {
     }
 }
 
-impl<C: WebSocket> Stream for DanmakuClient<C> {
-    type Item = Result<Danmaku>;
+impl<W: WebSocket> Stream for DanmakuClient<W> {
+    type Item = std::result::Result<Danmaku, W::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
@@ -247,7 +247,7 @@ impl<C: WebSocket> Stream for DanmakuClient<C> {
                         self.message.push(SendMessage::ZtLiveCsEnterRoom);
                         self.state = ClientState::Registered;
                     } else {
-                        return Poll::Ready(Some(Err(Error::RegisterError)));
+                        return Poll::Ready(Some(Err(Error::RegisterError.into())));
                     }
                 }
                 ClientState::Registered => {
