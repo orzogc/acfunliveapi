@@ -1,4 +1,4 @@
-pub(crate) const DANMAKU_SERVER: &str = "wss://link.xiatou.com/";
+pub(crate) const DANMAKU_SERVER: &str = "wss://klink-newproduct-ws3.kwaizt.com/";
 
 pub(crate) const RETRY_COUNT: u32 = 1;
 pub(crate) const SUB_BIZ: &str = "mainApp";

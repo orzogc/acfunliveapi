@@ -1,7 +1,8 @@
 use crate::{danmaku::*, global::*, proto::*, websocket::*, Error, Result};
 use asynchronous_codec::Framed;
-use futures::{ready, SinkExt, Stream, StreamExt};
+use futures::{ready, stream::FusedStream, SinkExt, Stream, StreamExt};
 use std::{
+    collections::VecDeque,
     convert::TryInto,
     pin::Pin,
     task::{Context, Poll},
@@ -127,7 +128,7 @@ impl<C> TryFrom<&ApiClient<C>> for DanmakuToken {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum ClientState {
     BeforeRegister,
     Registering,
@@ -143,7 +144,7 @@ pub type DefaultDanmakuClient = DanmakuClient<WebSocketClient>;
 pub struct DanmakuClient<W> {
     client: Framed<W, DanmakuProto>,
     state: ClientState,
-    message: Vec<SendMessage>,
+    message: VecDeque<SendMessage>,
     interval: Option<Duration>,
     time: SystemTime,
     heartbeat_seq_id: i64,
@@ -157,7 +158,7 @@ impl<W: WebSocket> DanmakuClient<W> {
                 Ok(client) => Ok(Self {
                     client: Framed::new(client, token.try_into()?),
                     state: ClientState::BeforeRegister,
-                    message: Vec::new(),
+                    message: VecDeque::new(),
                     interval: None,
                     time: SystemTime::now(),
                     heartbeat_seq_id: 0,
@@ -242,9 +243,9 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                         self.state = ClientState::Closed;
                         return Poll::Ready(None);
                     };
-                    if let ReceiveMessage::RegisterResponse = msg {
-                        self.message.push(SendMessage::KeepAliveRequest);
-                        self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                    if msg == ReceiveMessage::RegisterResponse {
+                        self.message.push_back(SendMessage::KeepAliveRequest);
+                        self.message.push_back(SendMessage::ZtLiveCsEnterRoom);
                         self.state = ClientState::Registered;
                     } else {
                         return Poll::Ready(Some(Err(Error::RegisterError.into())));
@@ -256,10 +257,10 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                         match now.duration_since(self.time) {
                             Ok(t) => {
                                 if t >= interval {
-                                    self.message.push(SendMessage::ZtLiveCsHeartbeat);
+                                    self.message.push_back(SendMessage::ZtLiveCsHeartbeat);
                                     self.heartbeat_seq_id += 1;
                                     if self.heartbeat_seq_id % 5 == 4 {
-                                        self.message.push(SendMessage::KeepAliveRequest);
+                                        self.message.push_back(SendMessage::KeepAliveRequest);
                                     }
                                     self.time = now;
                                 }
@@ -271,7 +272,10 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                     }
                     while !self.message.is_empty() {
                         ready!(self.client.poll_ready_unpin(cx))?;
-                        let msg = self.message.remove(0);
+                        let msg = self
+                            .message
+                            .pop_front()
+                            .expect("the message VecDeque is empty");
                         self.client.start_send_unpin(msg)?;
                     }
                     ready!(self.client.poll_flush_unpin(cx))?;
@@ -290,21 +294,21 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                             self.interval = Some(Duration::from_millis(interval));
                         }
                         ReceiveMessage::PushMessage => {
-                            self.message.push(SendMessage::ZtLiveScMessage);
+                            self.message.push_back(SendMessage::ZtLiveScMessage);
                         }
                         ReceiveMessage::EnterRoom => {
-                            self.message.push(SendMessage::ZtLiveScMessage);
-                            self.message.push(SendMessage::ZtLiveCsEnterRoom);
+                            self.message.push_back(SendMessage::ZtLiveScMessage);
+                            self.message.push_back(SendMessage::ZtLiveCsEnterRoom);
                         }
                         ReceiveMessage::PushAndStop => {
-                            self.message.push(SendMessage::ZtLiveScMessage);
-                            self.message.push(SendMessage::ZtLiveCsUserExit);
-                            self.message.push(SendMessage::UnregisterRequest);
+                            self.message.push_back(SendMessage::ZtLiveScMessage);
+                            self.message.push_back(SendMessage::ZtLiveCsUserExit);
+                            self.message.push_back(SendMessage::UnregisterRequest);
                             self.state = ClientState::Closing;
                         }
                         ReceiveMessage::Stop => {
-                            self.message.push(SendMessage::ZtLiveCsUserExit);
-                            self.message.push(SendMessage::UnregisterRequest);
+                            self.message.push_back(SendMessage::ZtLiveCsUserExit);
+                            self.message.push_back(SendMessage::UnregisterRequest);
                             self.state = ClientState::Closing;
                         }
                         ReceiveMessage::Close => {
@@ -315,7 +319,10 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                 ClientState::Closing => {
                     while !self.message.is_empty() {
                         ready!(self.client.poll_ready_unpin(cx))?;
-                        let msg = self.message.remove(0);
+                        let msg = self
+                            .message
+                            .pop_front()
+                            .expect("the message VecDeque is empty");
                         self.client.start_send_unpin(msg)?;
                     }
                     ready!(self.client.poll_close_unpin(cx))?;
@@ -325,6 +332,13 @@ impl<W: WebSocket> Stream for DanmakuClient<W> {
                 ClientState::Closed => return Poll::Ready(None),
             }
         }
+    }
+}
+
+impl<W: WebSocket> FusedStream for DanmakuClient<W> {
+    #[inline]
+    fn is_terminated(&self) -> bool {
+        self.state == ClientState::Closed
     }
 }
 

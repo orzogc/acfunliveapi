@@ -52,7 +52,7 @@ pub(crate) enum SendMessage {
     ZtLiveCsUserExit,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ReceiveMessage {
     Danmaku(Danmaku),
     RegisterResponse,
