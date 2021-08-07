@@ -68,12 +68,12 @@ impl ApiToken {
     }
 
     #[inline]
-    pub fn is_visitor(&self) -> bool {
+    pub const fn is_visitor(&self) -> bool {
         self.cookies.is_none()
     }
 
     #[inline]
-    pub fn is_user(&self) -> bool {
+    pub const fn is_user(&self) -> bool {
         self.cookies.is_some()
     }
 }
@@ -145,7 +145,7 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn token(&self) -> &ApiToken {
+    pub const fn token(&self) -> &ApiToken {
         &self.token
     }
 
@@ -161,7 +161,7 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn live(&self) -> Option<&Live> {
+    pub const fn live(&self) -> Option<&Live> {
         self.live.as_ref()
     }
 
@@ -171,22 +171,22 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn has_live(&self) -> bool {
+    pub const fn has_live(&self) -> bool {
         self.live.is_some()
     }
 
     #[inline]
-    pub fn acfun_id(&self) -> &Pretend<C, UrlResolver> {
+    pub const fn acfun_id(&self) -> &Pretend<C, UrlResolver> {
         &self.clients.acfun_id
     }
 
     #[inline]
-    pub fn acfun_live(&self) -> &Pretend<C, UrlResolver> {
+    pub const fn acfun_live(&self) -> &Pretend<C, UrlResolver> {
         &self.clients.acfun_live
     }
 
     #[inline]
-    pub fn kuaishou_zt(&self) -> &Pretend<C, UrlResolver> {
+    pub const fn kuaishou_zt(&self) -> &Pretend<C, UrlResolver> {
         &self.clients.kuaishou_zt
     }
 
@@ -196,17 +196,17 @@ impl<C> ApiClient<C> {
     }
 
     #[inline]
-    pub fn is_visitor(&self) -> bool {
+    pub const fn is_visitor(&self) -> bool {
         self.token.is_visitor()
     }
 
     #[inline]
-    pub fn is_user(&self) -> bool {
+    pub const fn is_user(&self) -> bool {
         self.token.is_user()
     }
 
     #[inline]
-    pub fn user_id(&self) -> i64 {
+    pub const fn user_id(&self) -> i64 {
         self.token.user_id
     }
 
@@ -443,6 +443,9 @@ where
     }
 }
 
+#[cfg(feature = "default_http_client")]
+pub type DefaultApiClientBuilder = ApiClientBuilder<HttpClient>;
+
 #[derive(Clone, Debug)]
 pub struct ApiClientBuilder<C> {
     client: ApiClient<C>,
@@ -491,7 +494,7 @@ impl<C> ApiClientBuilder<C> {
     }
 
     #[inline]
-    pub fn liver_uid(mut self, liver_uid: i64) -> Self {
+    pub const fn liver_uid(mut self, liver_uid: i64) -> Self {
         self.liver_uid = Some(liver_uid);
 
         self

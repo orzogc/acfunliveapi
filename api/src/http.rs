@@ -31,7 +31,7 @@ pub struct HttpClient(reqwest::Client);
 
 impl HttpClient {
     #[inline]
-    pub fn new(client: reqwest::Client) -> Self {
+    pub const fn new(client: reqwest::Client) -> Self {
         Self(client)
     }
 

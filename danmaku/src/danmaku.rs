@@ -65,7 +65,7 @@ pub enum ActionSignal {
 
 impl ActionSignal {
     #[inline]
-    pub fn time(&self) -> i64 {
+    pub const fn time(&self) -> i64 {
         match self {
             ActionSignal::Comment(s) => s.send_time_ms,
             ActionSignal::Like(s) => s.send_time_ms,
