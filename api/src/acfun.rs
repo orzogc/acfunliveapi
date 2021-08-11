@@ -1,5 +1,5 @@
 use crate::response::*;
-use pretend::{header, pretend, request, Json, Response, Result};
+use pretend::{pretend, Json, Response, Result};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]

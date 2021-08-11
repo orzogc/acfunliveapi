@@ -1,5 +1,5 @@
 use crate::response::*;
-use pretend::{header, pretend, request, Json, Result};
+use pretend::{pretend, Json, Result};
 use serde::Serialize;
 use std::collections::HashMap;
 
