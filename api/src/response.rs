@@ -252,9 +252,9 @@ pub struct Gift {
     pub ar_live_name: String,
     pub pay_wallet_type: i32,
     pub gift_price: i32,
-    pub webp_pic_list: Vec<GiftPicList>,
-    pub png_pic_list: Vec<GiftPicList>,
-    pub small_png_pic_list: Vec<GiftPicList>,
+    pub webp_pic_list: Vec<GiftPicture>,
+    pub png_pic_list: Vec<GiftPicture>,
+    pub small_png_pic_list: Vec<GiftPicture>,
     pub allow_batch_send_size_list: Vec<i32>,
     pub can_combo: bool,
     pub can_draw: bool,
@@ -267,7 +267,7 @@ pub struct Gift {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GiftPicList {
+pub struct GiftPicture {
     pub cdn: String,
     pub url: String,
     pub url_pattern: String,
