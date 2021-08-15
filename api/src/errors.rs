@@ -16,8 +16,8 @@ pub enum Error {
     EmptyLiveId,
     #[error(transparent)]
     ParseUrlError(#[from] pretend::resolver::ParseError),
-    #[error("http client pretend error: {0}")]
-    PretendError(String),
+    #[error(transparent)]
+    PretendError(#[from] pretend::Error),
     #[error(transparent)]
     ParseCookieError(#[from] cookie::ParseError),
     #[error(transparent)]
@@ -32,10 +32,4 @@ pub enum Error {
     #[cfg(feature = "default_http_client")]
     #[error(transparent)]
     BuildClientFailed(#[from] reqwest::Error),
-}
-
-impl From<pretend::Error> for Error {
-    fn from(err: pretend::Error) -> Self {
-        Self::PretendError(format!("pretend error: {}", err))
-    }
 }
