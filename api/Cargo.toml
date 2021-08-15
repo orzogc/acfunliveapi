@@ -25,4 +25,4 @@ serde_json = "1.0.66"
 thiserror = "1.0.26"
 
 [dev-dependencies]
-tokio = { version = "1.9.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.10.0", features = ["rt-multi-thread", "macros"] }

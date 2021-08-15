@@ -1,38 +1,31 @@
 use crate::response::*;
 use pretend::{pretend, Json, Result};
 use serde::Serialize;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize)]
-pub(crate) struct KsQuery<'a>(HashMap<&'a str, &'a str>);
+pub(crate) struct KsQuery<'a>([(&'a str, &'a str); 6]);
 
 impl<'a> KsQuery<'a> {
     pub(crate) fn visitor(user_id: &'a str, device_id: &'a str, service_token: &'a str) -> Self {
-        let mut query = HashMap::with_capacity(6);
-        query.extend([
+        Self([
             ("subBiz", "mainApp"),
             ("kpn", "ACFUN_APP"),
             ("kpf", "PC_WEB"),
             ("userId", user_id),
             ("did", device_id),
             ("acfun.api.visitor_st", service_token),
-        ]);
-
-        Self(query)
+        ])
     }
 
     pub(crate) fn user(user_id: &'a str, device_id: &'a str, service_token: &'a str) -> Self {
-        let mut query = HashMap::with_capacity(6);
-        query.extend([
+        Self([
             ("subBiz", "mainApp"),
             ("kpn", "ACFUN_APP"),
             ("kpf", "PC_WEB"),
             ("userId", user_id),
             ("did", device_id),
             ("acfun.midground.api_st", service_token),
-        ]);
-
-        Self(query)
+        ])
     }
 }
 
