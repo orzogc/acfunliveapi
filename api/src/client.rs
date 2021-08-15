@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 #[cfg(feature = "default_http_client")]
-use crate::http::HttpClient;
+use crate::http::{new_http_client, HttpClient};
 
 const ACFUN_ID: &str = "https://id.app.acfun.cn/";
 const ACFUN_LIVE: &str = "https://live.acfun.cn/";
@@ -45,7 +45,7 @@ impl<C: Clone> Clients<C> {
 impl Clients<HttpClient> {
     #[inline]
     fn default_clients() -> Result<Self> {
-        Self::new(HttpClient::default_client()?)
+        Self::new(new_http_client()?)
     }
 }
 
